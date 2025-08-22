@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Brain, TrendingUp, Users, Zap, ArrowRight, Search, Filter, BookOpen, Target, DollarSign } from 'lucide-react';
+import { Brain, TrendingUp, Users, Zap, ArrowRight, Search, BookOpen, Target, DollarSign } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DemoPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -89,12 +90,12 @@ export default function DemoPage() {
               </div>
               <span className="text-xl font-bold text-gray-900">Goldmines Demo</span>
             </div>
-            <a 
+            <Link 
               href="/"
               className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
             >
               ← Back to Home
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -107,7 +108,7 @@ export default function DemoPage() {
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Experience our AI-powered platform that analyzes Reddit discussions to generate profitable business ideas. 
-            Here's a preview of what you'll discover.
+            Here&apos;s a preview of what you&apos;ll discover.
           </p>
         </div>
       </section>
@@ -254,18 +255,18 @@ export default function DemoPage() {
             This is just a preview. Get unlimited access to our full database of AI-generated business opportunities.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <a 
+            <Link 
               href="/"
               className="px-8 py-4 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition-all duration-200 font-semibold text-lg"
             >
               Start Free Trial
-            </a>
-            <a 
+            </Link>
+            <Link 
               href="/"
               className="px-8 py-4 border-2 border-white text-white rounded-xl hover:bg-white hover:text-blue-600 transition-all duration-200 font-semibold text-lg"
             >
               View Pricing
-            </a>
+            </Link>
           </div>
         </div>
       </section>

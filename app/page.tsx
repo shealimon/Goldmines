@@ -1,6 +1,5 @@
 'use client';
 
-import Image from "next/image";
 import { useState } from "react";
 import { ArrowRight, Brain, TrendingUp, Users, Zap, CheckCircle, Star } from "lucide-react";
 import AuthModal from "./components/AuthModal";
