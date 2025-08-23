@@ -1,27 +1,27 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import './globals.css'
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+})
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
-  title: "Goldmines - AI-Powered Business Idea Generation",
-  description: "Transform Reddit discussions into profitable business opportunities. Our AI analyzes thousands of posts to uncover trending problems and market gaps.",
-};
+  title: 'Goldmines - Business Idea Generator',
+  description: 'Generate profitable business ideas with AI-powered insights',
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
       <body
@@ -30,5 +30,5 @@ export default function RootLayout({
         {children}
       </body>
     </html>
-  );
+  )
 }
