@@ -97,9 +97,9 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthM
           router.push('/dashboard');
         }, 1500);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Auth error:', error);
-      setMessage(error.message);
+      setMessage(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -116,8 +116,8 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthM
       });
 
       if (error) throw error;
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -136,8 +136,8 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthM
       if (error) throw error;
       
       setStep('reset-sent');
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -174,8 +174,8 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthM
       if (error) throw error;
       
       setMessage('Verification email sent again!');
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -197,7 +197,7 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthM
             <CheckCircle className="w-16 h-16 text-blue-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">Check Your Email</h3>
             <p className="text-gray-600 mb-6">
-              We've sent a verification link to <strong>{formData.email}</strong>
+              We&apos;ve sent a verification link to <strong>{formData.email}</strong>
             </p>
             <p className="text-sm text-gray-500 mb-6">
               Click the link in your email to verify your account and start using Goldmines.
@@ -291,7 +291,7 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthM
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h2>
             <p className="text-gray-600 mb-6">
-              We've sent a password reset link to <strong>{formData.email}</strong>
+              We&apos;ve sent a password reset link to <strong>{formData.email}</strong>
             </p>
             <p className="text-sm text-gray-500 mb-6">
               Click the link in your email to reset your password.

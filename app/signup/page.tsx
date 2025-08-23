@@ -99,10 +99,10 @@ export default function SignupPage() {
       } else {
         throw new Error('No user data returned from signup');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('=== SIGNUP ERROR ===');
       console.error('Error details:', error);
-      setMessage(`Error: ${error.message}`);
+      setMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
       console.log('=== SIGNUP DEBUG END ===');
@@ -132,9 +132,9 @@ export default function SignupPage() {
       }
       
       setMessage('Verification email sent again! Check your spam folder if not in inbox.');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Resend error:', error);
-      setMessage(`Error resending email: ${error.message}`);
+      setMessage(`Error resending email: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
