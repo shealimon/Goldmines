@@ -4,13 +4,27 @@ import { useState } from 'react';
 import { Brain, Zap, TrendingUp, Users, Target, DollarSign } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 
+interface GeneratedIdea {
+  title: string;
+  description: string;
+  marketSize: string;
+  difficulty: string;
+  redditScore: number;
+  category: string;
+  painPoints: string[];
+  revenueModel: string;
+}
+
 export default function IdeaGenerator() {
   const { profile, canGenerateIdea, incrementUsage } = useUser();
   const [loading, setLoading] = useState(false);
-  const [generatedIdea, setGeneratedIdea] = useState(null);
+  const [generatedIdea, setGeneratedIdea] = useState<GeneratedIdea | null>(null);
 
   const generateIdea = async () => {
-    if (!canGenerateIdea()) {
+    // Check if user can generate ideas
+    const canGenerate = await canGenerateIdea();
+    
+    if (!canGenerate) {
       if (profile?.role === 'trial') {
         alert('Your trial has expired. Upgrade to continue generating ideas.');
       } else {
@@ -23,7 +37,7 @@ export default function IdeaGenerator() {
     
     // Simulate AI idea generation
     setTimeout(() => {
-      const ideas = [
+      const ideas: GeneratedIdea[] = [
         {
           title: 'AI-Powered Personal Chef App',
           description: 'Mobile app that creates personalized meal plans based on dietary restrictions, budget, and cooking skills.',
@@ -67,7 +81,7 @@ export default function IdeaGenerator() {
       <div className="text-center mb-8">
         <button
           onClick={generateIdea}
-          disabled={loading || !canGenerateIdea()}
+          disabled={loading}
           className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200 font-semibold text-lg flex items-center space-x-2 mx-auto"
         >
           {loading ? (
@@ -121,12 +135,22 @@ export default function IdeaGenerator() {
 
       {profile && (
         <div className="mt-6 text-center text-sm text-gray-600">
-          {profile.role === 'trial' && (
+          {profile.role === 'trial' && profile.trial_expires_at && (
             <p className="text-orange-600 mb-2">
               Trial expires: {new Date(profile.trial_expires_at).toLocaleDateString()}
             </p>
           )}
-          {profile.role === 'free' && (
+          {profile.role === 'pro' && (
+            <p className="text-green-600 mt-2">
+              Pro Plan Active - Unlimited ideas!
+            </p>
+          )}
+          {profile.role === 'ultimate' && (
+            <p className="text-purple-600 mt-2">
+              Ultimate Plan Active - Unlimited ideas!
+            </p>
+          )}
+          {(!profile.role || profile.role === 'trial') && (
             <p className="text-blue-600 mt-2">
               Upgrade to Pro for unlimited ideas!
             </p>

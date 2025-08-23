@@ -8,7 +8,7 @@ interface UserProfile {
   user_id: string;
   email: string;
   display_name: string | null;
-  role: 'trial' | 'yearly' | 'lifetime';
+  role: 'trial' | 'pro' | 'ultimate'; // Updated to match your database
   trial_started_at: string;
   trial_expires_at: string;
   stripe_customer_id: string | null;
@@ -63,11 +63,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         console.log('✅ Profile fetched successfully:', data);
         setProfile(data);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(' Exception in fetchUserProfile:', {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
         error: error
       });
     }
@@ -107,11 +107,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           await fetchUserProfile(userId);
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('💥 Exception in createUserProfile:', {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
         error: error
       });
     }
@@ -203,8 +203,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const isSubscriptionActive = () => {
     if (!profile) return false;
     
-    if (profile.role === 'lifetime') return true;
-    if (profile.role === 'yearly') return true;
+    if (profile.role === 'ultimate') return true;
+    if (profile.role === 'pro') return true;
     
     // For trial users, check if trial hasn't expired
     if (profile.role === 'trial') {
@@ -217,8 +217,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const canGenerateIdea = async () => {
     if (!profile) return false;
     
-    if (profile.role === 'lifetime') return true;
-    if (profile.role === 'yearly') return true;
+    if (profile.role === 'ultimate') return true;
+    if (profile.role === 'pro') return true;
     
     // Trial users can generate ideas during trial period
     return isSubscriptionActive();

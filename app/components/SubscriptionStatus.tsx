@@ -1,152 +1,136 @@
 'use client';
 
+import { useState } from 'react';
 import { useUser } from '@/contexts/UserContext';
-import { Crown, Zap, CreditCard, Calendar, Zap as Lightning, Infinity, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Crown, Star } from 'lucide-react';
 
 export default function SubscriptionStatus() {
-  const { profile, loading, isSubscriptionActive, canGenerateIdea, getUsagePercentage } = useUser();
+  const { profile, isSubscriptionActive, canGenerateIdea } = useUser();
+  const [loading, setLoading] = useState(false);
 
-  if (loading) {
-    return <div className="animate-pulse">Loading...</div>;
-  }
+  if (!profile) return null;
 
-  if (!profile) {
-    return null;
-  }
-
-  const getStatusColor = (type: string) => {
-    switch (type) {
-      case 'yearly': return 'text-blue-600 bg-blue-100 border-blue-200';
-      case 'lifetime': return 'text-purple-600 bg-purple-100 border-purple-200';
-      default: return 'text-gray-600 bg-gray-100 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (type: string) => {
-    switch (type) {
-      case 'yearly': return <Crown className="w-4 h-4" />;
-      case 'lifetime': return <Infinity className="w-4 h-4" />;
-      default: return <CreditCard className="w-4 h-4" />;
-    }
-  };
-
-  const usagePercentage = getUsagePercentage();
+  const canGenerate = isSubscriptionActive();
   const isActive = isSubscriptionActive();
-  const canGenerate = canGenerateIdea();
+
+  const getStatusColor = (role: string) => {
+    switch (role) {
+      case 'ultimate':
+        return 'border-purple-500 bg-purple-50 text-purple-700';
+      case 'pro':
+        return 'border-green-500 bg-green-50 text-green-700';
+      case 'trial':
+        return 'border-orange-500 bg-orange-50 text-orange-700';
+      default:
+        return 'border-gray-500 bg-gray-50 text-gray-700';
+    }
+  };
+
+  const getStatusIcon = (role: string) => {
+    switch (role) {
+      case 'ultimate':
+        return <Crown className="w-4 h-4" />;
+      case 'pro':
+        return <Star className="w-4 h-4" />;
+      case 'trial':
+        return <Clock className="w-4 h-4" />;
+      default:
+        return <XCircle className="w-4 h-4" />;
+    }
+  };
 
   return (
-    <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+    <div className="bg-white rounded-xl p-6 border border-gray-200">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Account Status</h3>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 border ${getStatusColor(profile.user_type)}`}>
-          {getStatusIcon(profile.user_type)}
-          {profile.user_type.charAt(0).toUpperCase() + profile.user_type.slice(1)}
+        <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 border ${getStatusColor(profile.role)}`}>
+          {getStatusIcon(profile.role)}
+          {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
         </span>
       </div>
 
-      {/* Subscription Status Badge */}
-      <div className="mb-4">
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          isActive 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-red-100 text-red-800'
-        }`}>
-          {isActive ? 'Active' : 'Expired'}
-        </span>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-gray-50 rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Lightning className="w-4 h-4 text-blue-500" />
-            <span className="text-sm text-gray-600">Monthly Usage</span>
-          </div>
-          <span className="text-xl font-bold text-gray-900">
-            {profile.ideas_generated_this_month}
-          </span>
-          <span className="text-xs text-gray-500 block">
-            of {profile.monthly_usage_limit === 999999 ? '∞' : profile.monthly_usage_limit}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-gray-600">Subscription Status</span>
+          <span className={`flex items-center gap-2 ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+            {isActive ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+            {isActive ? 'Active' : 'Inactive'}
           </span>
         </div>
-        
-        <div className="bg-gray-50 rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-green-500" />
-            <span className="text-sm text-gray-600">Total Generated</span>
-          </div>
-          <span className="text-xl font-bold text-gray-900">
-            {profile.total_ideas_generated}
-          </span>
-        </div>
-      </div>
 
-      {/* Usage Progress Bar for Free Users */}
-      {profile.user_type === 'free' && (
-        <div className="mb-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Monthly Usage</span>
-            <span>{Math.round(usagePercentage)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className={`h-2 rounded-full transition-all duration-300 ${
-                usagePercentage >= 80 ? 'bg-red-500' : 
-                usagePercentage >= 60 ? 'bg-yellow-500' : 'bg-blue-500'
-              }`}
-              style={{ width: `${Math.min(usagePercentage, 100)}%` }}
-            ></div>
-          </div>
+        <div className="flex items-center justify-between">
+          <span className="text-gray-600">Idea Generation</span>
+          <span className={`flex items-center gap-2 ${canGenerate ? 'text-green-600' : 'text-red-600'}`}>
+            {canGenerate ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+            {canGenerate ? 'Available' : 'Limited'}
+          </span>
         </div>
-      )}
 
-      <div className="space-y-2 text-sm">
-        <div className="flex items-center justify-between py-2 border-t border-gray-100">
-          <span className="text-gray-600 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Member Since
-          </span>
-          <span className="font-medium">
-            {new Date(profile.subscription_start_date).toLocaleDateString()}
-          </span>
-        </div>
-        
-        {profile.subscription_end_date && profile.user_type === 'yearly' && (
-          <div className="flex items-center justify-between py-2 border-t border-gray-100">
-            <span className="text-gray-600">Renews</span>
-            <span className="font-medium">
-              {new Date(profile.subscription_end_date).toLocaleDateString()}
+        {profile.role === 'trial' && profile.trial_expires_at && (
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">Trial Expires</span>
+            <span className="text-orange-600">
+              {new Date(profile.trial_expires_at).toLocaleDateString()}
             </span>
           </div>
         )}
       </div>
 
-      {/* Usage Status Messages */}
-      {!canGenerate && profile.user_type === 'free' && (
-        <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <p className="text-sm text-red-700">
-              <strong>Monthly limit reached!</strong> Upgrade to continue generating ideas.
+      <div className="mt-6 space-y-3">
+        {profile.role === 'trial' && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h4 className="font-semibold text-orange-800 mb-2">Trial Account</h4>
+            <p className="text-orange-700 text-sm">
+              You're currently on a trial. Upgrade to Pro or Ultimate for unlimited access.
             </p>
           </div>
-        </div>
-      )}
+        )}
 
-      {profile.user_type === 'free' && canGenerate && (
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-700">
-            <strong>Free Plan:</strong> {profile.monthly_usage_limit - profile.ideas_generated_this_month} ideas remaining this month
-          </p>
-        </div>
-      )}
+        {profile.role === 'pro' && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="font-semibold text-green-800 mb-2">Pro Plan Active</h4>
+            <p className="text-green-700 text-sm">
+              You have access to all features with your Pro subscription.
+            </p>
+          </div>
+        )}
 
-      {profile.user_type === 'yearly' && !isActive && (
-        <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-          <p className="text-sm text-red-700">
-            <strong>Subscription Expired</strong> - Renew to continue accessing unlimited ideas!
-          </p>
-        </div>
-      )}
+        {profile.role === 'ultimate' && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <h4 className="font-semibold text-purple-800 mb-2">Ultimate Plan Active</h4>
+            <p className="text-purple-700 text-sm">
+              You have unlimited access to all premium features.
+            </p>
+          </div>
+        )}
+
+        {!canGenerate && profile.role === 'trial' && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h4 className="font-semibold text-red-800 mb-2">Trial Expired</h4>
+            <p className="text-red-700 text-sm">
+              Your trial has expired. Upgrade to continue using the service.
+            </p>
+          </div>
+        )}
+
+        {profile.role === 'trial' && canGenerate && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-800 mb-2">Upgrade Available</h4>
+            <p className="text-blue-700 text-sm">
+              Upgrade to Pro or Ultimate for unlimited access and premium features.
+            </p>
+          </div>
+        )}
+
+        {profile.role === 'pro' && !isActive && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h4 className="font-semibold text-red-800 mb-2">Subscription Expired</h4>
+            <p className="text-red-700 text-sm">
+              Your Pro subscription has expired. Renew to continue access.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
