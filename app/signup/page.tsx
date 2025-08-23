@@ -149,12 +149,12 @@ export default function SignupPage() {
             <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">Check Your Email</h3>
             <p className="text-gray-300 mb-6">
-              We've sent a verification link to <strong className="text-white">{formData.email}</strong>
+              We&apos;ve sent a verification link to <strong className="text-white">{formData.email}</strong>
             </p>
             <p className="text-sm text-gray-400 mb-6">
               Click the link in your email to verify your account and start using Goldmines.
               <br />
-              <strong>Check your spam folder if you don't see the email!</strong>
+              <strong>Check your spam folder if you don&apos;t see the email!</strong>
             </p>
             
             <button

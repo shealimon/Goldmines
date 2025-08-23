@@ -1,21 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { LogOut, User, Mail, Calendar } from 'lucide-react';
 
+interface UserType {
+  id: string;
+  email: string;
+  created_at: string;
+  user_metadata?: {
+    display_name?: string;
+  };
+}
+
+interface ProfileType {
+  display_name?: string;
+  role?: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [user, setUser] = useState<UserType | null>(null);
+  const [profile, setProfile] = useState<ProfileType | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       
@@ -25,7 +35,7 @@ export default function DashboardPage() {
         return;
       }
 
-      setUser(user);
+      setUser(user as UserType);
       
       // Fetch profile data
       const { data: profileData, error: profileError } = await supabase
@@ -46,7 +56,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    checkUser();
+  }, [checkUser]);
 
   const handleLogout = async () => {
     try {
@@ -124,7 +138,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center">
                 <Calendar className="w-4 h-4 mr-2" />
-                <span>Member since {new Date(user?.created_at).toLocaleDateString()}</span>
+                <span>Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}</span>
               </div>
             </div>
           </div>

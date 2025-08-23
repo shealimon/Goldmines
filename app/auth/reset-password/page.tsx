@@ -41,9 +41,9 @@ export default function ResetPasswordPage() {
 
       setMessage('Password updated successfully!');
       setStep('success');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Password reset error:', error);
-      setMessage(`Error: ${error.message}`);
+      setMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }

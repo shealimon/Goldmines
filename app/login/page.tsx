@@ -37,9 +37,9 @@ export default function LoginPage() {
           window.location.href = '/dashboard';
         }, 1000);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login exception:', error);
-      setMessage(`Error: ${error.message}`);
+      setMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -142,8 +142,8 @@ export default function LoginPage() {
         )}
 
         <div className="mt-6 text-center">
-          <p className="text-gray-300">
-            Don't have an account?{' '}
+          <p className="text-sm text-gray-400">
+            Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors">
               Sign up
             </Link>
