@@ -1,0 +1,13 @@
+warning: in the working copy of 'app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+app/auth/callback/route.ts
+app/auth/reset-password/page.tsx
+app/components/IdeaGenerator.tsx
+app/components/SubscriptionStatus.tsx
+app/dashboard/page.tsx
+app/demo/page.tsx
+app/login/page.tsx
+app/page.tsx
+package-lock.json
+package.json

@@ -116,12 +116,12 @@ export default function LoginPage() {
               <input type="checkbox" className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500 bg-white/10" />
               <span className="ml-2 text-sm text-gray-300">Remember me</span>
             </label>
-            <button 
-              type="button"
+            <Link 
+              href="/forgot-password"
               className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               Forgot password?
-            </button>
+            </Link>
           </div>
 
           <button

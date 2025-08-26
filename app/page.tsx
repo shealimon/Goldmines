@@ -1,9 +1,12 @@
 'use client';
 
-import { ArrowRight, Brain, TrendingUp, Users, Zap, CheckCircle, Star } from "lucide-react";
+import { ArrowRight, Brain, TrendingUp, Users, Zap, CheckCircle, Star, Menu, X } from "lucide-react";
 import Link from 'next/link';
+import { useState } from 'react';
 
 export default function Home() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
@@ -24,7 +27,9 @@ export default function Home() {
             </div>
             <span className="text-2xl font-black text-white">goldmines</span>
           </div>
-          <div className="flex items-center space-x-8">
+          
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center space-x-8">
             <a href="#product" className="text-white hover:text-emerald-400 transition-colors font-bold text-lg cursor-pointer">Product</a>
             <a href="#pricing" className="text-white hover:text-emerald-400 transition-colors font-bold text-lg cursor-pointer">Pricing</a>
             <a href="#about" className="text-white hover:text-emerald-400 transition-colors font-bold text-lg cursor-pointer">About</a>
@@ -35,7 +40,81 @@ export default function Home() {
               Signup
             </Link>
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden text-white hover:text-emerald-400 transition-colors"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </nav>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden fixed top-0 left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md z-50">
+            <div className="flex flex-col h-full">
+              {/* Mobile Menu Header */}
+              <div className="flex items-center justify-between px-6 py-8 border-b border-white/20">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-black text-lg">G</span>
+                  </div>
+                  <span className="text-2xl font-black text-white">goldmines</span>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-white hover:text-emerald-400 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              {/* Mobile Menu Items */}
+              <div className="flex-1 px-6 py-8 space-y-6">
+                <a 
+                  href="#product" 
+                  className="block text-white hover:text-emerald-400 transition-colors font-bold text-xl py-4 border-b border-white/10"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Product
+                </a>
+                <a 
+                  href="#pricing" 
+                  className="block text-white hover:text-emerald-400 transition-colors font-bold text-xl py-4 border-b border-white/10"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Pricing
+                </a>
+                <a 
+                  href="#about" 
+                  className="block text-white hover:text-emerald-400 transition-colors font-bold text-xl py-4 border-b border-white/10"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  About
+                </a>
+                
+                {/* Mobile Menu Buttons */}
+                <div className="pt-8 space-y-4">
+                  <Link 
+                    href="/login" 
+                    className="block w-full text-center px-6 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-full hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 font-semibold shadow-lg shadow-cyan-500/25"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Login
+                  </Link>
+                  <Link 
+                    href="/signup" 
+                    className="block w-full text-center px-8 py-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full hover:from-purple-600 hover:to-purple-700 transition-all duration-200 font-semibold shadow-lg shadow-purple-500/25"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Signup
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="text-center">
@@ -46,7 +125,7 @@ export default function Home() {
                 Million-Dollar
               </span>
               <br />
-              Business Idea
+              Business Ideas
             </h1>
             
             <p className="text-lg text-gray-300 mb-16 leading-relaxed max-w-3xl mx-auto font-light tracking-wide">
@@ -412,7 +491,7 @@ export default function Home() {
           
           <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              &copy; 2024 Goldmines. All rights reserved.
+              &copy; 2025 Goldmines. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <a href="#" className="text-gray-400 hover:text-emerald-400 transition-colors duration-300 text-sm">Privacy Policy</a>
