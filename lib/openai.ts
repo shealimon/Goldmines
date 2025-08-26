@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
 
-// Initialize OpenAI client
+// Initialize OpenAI client with fallback
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-build',
 });
 
 export interface RedditPost {
@@ -34,6 +34,12 @@ export interface AnalyzedPost extends RedditPost {
 export const openaiService = {
   // Pre-filter function to check if post contains business idea
   async preFilterBusinessIdea(text: string): Promise<boolean> {
+    // Skip API calls during build if no valid API key
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
+      console.log('Skipping OpenAI API call during build - no valid API key');
+      return true; // Default to true during build
+    }
+    
     try {
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -61,6 +67,12 @@ export const openaiService = {
 
   // Batch analyze multiple posts
   async analyzeRedditPostsBatch(posts: RedditPost[]): Promise<Array<{post_id: string, analysis: string}>> {
+    // Skip API calls during build if no valid API key
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
+      console.log('Skipping OpenAI batch analysis during build - no valid API key');
+      return posts.map(post => ({ post_id: post.id, analysis: '' }));
+    }
+    
     try {
       console.log(`Batch analyzing ${posts.length} Reddit posts with OpenAI...`);
       
@@ -176,6 +188,24 @@ Example format:
 
   // Single post analysis (for backward compatibility)
   async analyzeRedditPost(post: RedditPost): Promise<AnalyzedPost> {
+    // Skip API calls during build if no valid API key
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
+      console.log('Skipping OpenAI analysis during build - no valid API key');
+      return {
+        ...post,
+        analysis_status: 'failed',
+        business_idea_name: post.title,
+        opportunity_points: ['Build mode - no analysis available'],
+        problems_solved: ['Build mode - no analysis available'],
+        target_customers: ['Build mode - no analysis available'],
+        market_size: ['Build mode - no analysis available'],
+        niche: 'Build mode',
+        category: 'Build mode',
+        marketing_strategy: ['Build mode - no analysis available'],
+        full_analysis: 'Build mode - OpenAI analysis not available'
+      };
+    }
+    
     try {
       console.log('Analyzing single Reddit post with OpenAI...');
       
