@@ -14,7 +14,11 @@ import {
   Settings,
   Plus,
   Search,
-  Filter
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 // Remove these interfaces - using types from UserContext
@@ -49,6 +53,11 @@ export default function DashboardPage() {
   const { user, profile, loading, signOut } = useUser();
   const [activeTab, setActiveTab] = useState('business-ideas');
   const [businessIdeas, setBusinessIdeas] = useState<BusinessIdea[]>([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(50); // Fixed at 50 rows per page
+  const [totalItems, setTotalItems] = useState(0);
   
   // Debug log for businessIdeas state changes
   useEffect(() => {
@@ -149,18 +158,22 @@ export default function DashboardPage() {
             return dateB - dateA; // Descending order (recent first)
           });
           setBusinessIdeas(sortedIdeas);
+          setTotalItems(sortedIdeas.length); // Set total items for pagination
           console.log('📊 Business ideas set in state:', sortedIdeas.length);
         } else {
           setBusinessIdeas([]);
+          setTotalItems(0);
           console.log('📭 No business ideas found - setting empty array');
         }
       } else {
         console.error('❌ Failed to load business ideas:', data.message);
-        setBusinessIdeas([]); // Set empty array on error
+        setBusinessIdeas([]);
+        setTotalItems(0);
       }
     } catch (error) {
       console.error('💥 Error loading business ideas:', error);
-      setBusinessIdeas([]); // Set empty array on error
+      setBusinessIdeas([]);
+      setTotalItems(0);
     }
   };
 
@@ -271,6 +284,29 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  // Calculate pagination values
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const currentPageData = businessIdeas.slice(startIndex, endIndex);
+
+  // Pagination navigation functions
+  const goToPage = (page: number) => {
+    const validPage = Math.max(1, Math.min(page, totalPages));
+    setCurrentPage(validPage);
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToNextPage = () => goToPage(currentPage + 1);
+  const goToPreviousPage = () => goToPage(currentPage - 1);
+
+  // Handle page size change - REMOVED since page size is fixed
+  // const handlePageSizeChange = (newPageSize: number) => {
+  //   setPageSize(newPageSize);
+  //   setCurrentPage(1); // Reset to first page when changing page size
+  // };
 
   return (
     <div className="min-h-screen bg-white">
@@ -420,10 +456,10 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {businessIdeas && businessIdeas.length > 0 ? (
-                        businessIdeas.map((idea, index) => (
+                      {currentPageData && currentPageData.length > 0 ? (
+                        currentPageData.map((idea, index) => (
                           <tr 
-                            key={idea.id}
+                            key={`data-page-${currentPage}-row-${startIndex + index}-id-${idea.id}`}
                             onClick={() => {
                               setSelectedIdea(idea);
                               setShowIdeaDetail(true);
@@ -431,7 +467,7 @@ export default function DashboardPage() {
                             className="hover:bg-gray-50 cursor-pointer transition-all duration-200"
                           >
                             <td className="px-3 py-2 text-gray-500 text-sm font-medium">
-                              {index + 1}
+                              {startIndex + index + 1}
                             </td>
                             <td className="px-3 py-2">
                               <div className="text-gray-900 font-medium text-sm">{idea.business_idea_name || 'Untitled Business Idea'}</div>
@@ -446,9 +482,9 @@ export default function DashboardPage() {
                         ))
                       ) : (
                         // Always show empty rows when no data
-                        Array.from({ length: 5 }).map((_, index) => (
-                          <tr key={`empty-${index}`} className="border-b border-gray-200">
-                            <td className="px-3 py-2 text-gray-400 text-sm">{index + 1}</td>
+                        Array.from({ length: Math.min(5, pageSize) }).map((_, index) => (
+                          <tr key={`empty-page-${currentPage}-row-${index}-no-data`} className="border-b border-gray-200">
+                            <td className="px-3 py-2 text-gray-400 text-sm">{startIndex + index + 1}</td>
                             <td className="px-3 py-2 text-gray-400 text-sm">
                               {index === 0 ? "No business ideas yet - Click 'Fetch New Ideas' to get started" : ""}
                             </td>
@@ -459,6 +495,120 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination Controls */}
+                {totalItems > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      {/* Page Size Info - Fixed at 50 */}
+                      <div className="text-sm text-gray-700">
+                        <span className="font-medium">50 rows</span> per page
+                      </div>
+
+                      {/* Pagination Info */}
+                      <div className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                        <span className="font-medium">{endIndex}</span> of{' '}
+                        <span className="font-medium">{totalItems}</span> results
+                      </div>
+
+                      {/* Pagination Navigation */}
+                      <div className="flex items-center space-x-1">
+                        {/* First Page */}
+                        <button
+                          onClick={goToFirstPage}
+                          disabled={currentPage === 1}
+                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="First page"
+                        >
+                          <ChevronsLeft className="w-4 h-4" />
+                        </button>
+
+                        {/* Previous Page */}
+                        <button
+                          onClick={goToPreviousPage}
+                          disabled={currentPage === 1}
+                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Previous page"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+
+                        {/* Page Numbers */}
+                        <div className="flex items-center space-x-1">
+                          {/* Show first page */}
+                          {currentPage > 3 && (
+                            <>
+                              <button
+                                onClick={() => goToPage(1)}
+                                className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                1
+                              </button>
+                              {currentPage > 4 && (
+                                <span className="px-2 text-gray-400">...</span>
+                              )}
+                            </>
+                          )}
+
+                          {/* Show current page and neighbors */}
+                          {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                            const page = Math.max(1, currentPage - 1 + i);
+                            if (page > totalPages) return null;
+                            return (
+                              <button
+                                key={page}
+                                onClick={() => goToPage(page)}
+                                className={`px-3 py-1 text-sm rounded transition-colors ${
+                                  page === currentPage
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            );
+                          })}
+
+                          {/* Show last page */}
+                          {currentPage < totalPages - 2 && (
+                            <>
+                              {currentPage < totalPages - 3 && (
+                                <span className="px-2 text-gray-400">...</span>
+                              )}
+                              <button
+                                onClick={() => goToPage(totalPages)}
+                                className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                {totalPages}
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Next Page */}
+                        <button
+                          onClick={goToNextPage}
+                          disabled={currentPage === totalPages}
+                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Next page"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+
+                        {/* Last Page */}
+                        <button
+                          onClick={goToLastPage}
+                          disabled={currentPage === totalPages}
+                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Last page"
+                        >
+                          <ChevronsRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

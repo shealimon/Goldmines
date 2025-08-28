@@ -101,7 +101,7 @@ Return as a JSON array, where each object includes:
 
 Rules for analysis format (for the "analysis" field):
 Business Idea:
-[one-line, crafted title in 3–8 words that clearly conveys the core value]
+[one-line, crafted title in 3 to 8 words that clearly conveys the core value; do NOT copy verbatim from the post; do NOT use trademarked game or product names in the title; always make it a generic, brand-safe title]
 
 Opportunity:
 - [bullets]

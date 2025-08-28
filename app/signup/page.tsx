@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, Mail, Lock, User, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [step, setStep] = useState<'main' | 'verification'>('main');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -23,34 +25,43 @@ export default function SignupPage() {
       console.log('=== SIGNUP DEBUG START ===');
       console.log('Form data:', formData);
       
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      // Sign up with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            display_name: formData.display_name
+          }
+        }
       });
 
-      const data = await response.json();
+      console.log('Signup response:', { data, error });
 
-      if (data.success) {
-        console.log('Signup successful:', data.user);
-        setMessage('Account created successfully! Redirecting to login...');
+      if (error) {
+        console.error('Supabase signup error:', error);
+        throw error;
+      }
+      
+      if (data.user) {
+        console.log('User created successfully:', data.user);
+        console.log('User metadata:', data.user.user_metadata);
         
-        // Store auth data in localStorage for immediate login
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('auth_user', JSON.stringify(data.user));
-        
-        // Redirect to dashboard after successful signup
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1500);
+        if (data.session) {
+          // User is logged in immediately
+          console.log('User logged in automatically');
+          setMessage('Account created and logged in successfully!');
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1500);
+        } else {
+          // User created but not logged in - email confirmation required
+          console.log('User created, email confirmation required');
+          setMessage('Account created! Please check your email for verification link. Check spam folder if not in inbox.');
+          setStep('verification');
+        }
       } else {
-        console.error('Signup error:', data.message);
-        setMessage(data.message || 'Failed to create account. Please try again.');
+        throw new Error('No user data returned from signup');
       }
     } catch (error: unknown) {
       console.error('=== SIGNUP ERROR ===');
@@ -68,6 +79,68 @@ export default function SignupPage() {
       [e.target.name]: e.target.value,
     });
   };
+
+  const resendVerificationEmail = async () => {
+    setLoading(true);
+    try {
+      console.log('Resending verification email to:', formData.email);
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: formData.email
+      });
+
+      if (error) {
+        console.error('Resend error:', error);
+        throw error;
+      }
+      
+      setMessage('Verification email sent again! Check your spam folder if not in inbox.');
+    } catch (error: unknown) {
+      console.error('Resend error:', error);
+      setMessage(`Error resending email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Verification Step
+  if (step === 'verification') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 w-full max-w-md border border-white/20">
+          <div className="text-center">
+            <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Check Your Email</h3>
+            <p className="text-gray-300 mb-6">
+              We&apos;ve sent a verification link to <strong className="text-white">{formData.email}</strong>
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              Click the link in your email to verify your account and start using Goldmines.
+              <br />
+              <strong>Check your spam folder if you don&apos;t see the email!</strong>
+            </p>
+            
+            <button
+              onClick={resendVerificationEmail}
+              disabled={loading}
+              className="px-6 py-2 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 disabled:opacity-50 mb-4"
+            >
+              {loading ? 'Sending...' : 'Resend Email'}
+            </button>
+            
+            <Link
+              href="/"
+              className="text-emerald-400 hover:text-emerald-300 flex items-center justify-center"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Main Signup Step
   return (
@@ -187,12 +260,7 @@ export default function SignupPage() {
             Back to Home
           </Link>
         </div>
-        
-        <div className="mt-6 p-3 bg-blue-500/20 text-blue-300 rounded-lg text-sm">
-          <p className="font-semibold mb-1">Demo Account Available:</p>
-          <p>Email: demo@goldmines.com</p>
-          <p>Password: demo123</p>
-        </div>
+
       </div>
     </div>
   );

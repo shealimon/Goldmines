@@ -1,16 +1,21 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export interface User {
   id: string;
-  email: string;
+  email?: string;
   created_at: string;
+  user_metadata?: {
+    display_name?: string;
+  };
 }
 
 export interface UserProfile {
   user_id: string;
   name: string | null;
+  display_name?: string;
   avatar_url: string | null;
   api_credits: number;
   plan_type: string;
@@ -39,29 +44,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserProfile = async (userId: string, token: string) => {
+  const fetchUserProfile = async (userId: string) => {
     try {
       console.log('🔍 Fetching profile for user:', userId);
       
-      const response = await fetch('/api/auth/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          console.log('✅ Profile fetched successfully:', data.profile);
-          setProfile(data.profile);
-        } else {
-          console.error('❌ Error fetching profile:', data.message);
-          // Create default profile if it doesn't exist
-          await createUserProfile(userId, token);
+      if (error) {
+        console.error('❌ Supabase error fetching profile:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // If profile doesn't exist, create it
+        if (error.code === 'PGRST116') {
+          console.log('🆕 Profile not found, creating new one...');
+          await createUserProfile(userId);
         }
       } else {
-        console.error('❌ HTTP error fetching profile:', response.status);
-        await createUserProfile(userId, token);
+        console.log('✅ Profile fetched successfully:', data);
+        setProfile(data);
       }
     } catch (error: unknown) {
       console.error('🔥 Exception in fetchUserProfile:', {
@@ -73,12 +81,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createUserProfile = async (userId: string, token: string) => {
+  const createUserProfile = async (userId: string) => {
     try {
-      console.log('🆕 Creating new profile for user:', userId);
+      console.log('🆕 Creating profile for user:', userId);
       
       const defaultProfile = {
+        user_id: userId,
         name: null,
+        display_name: null,
         avatar_url: null,
         api_credits: 1000,
         plan_type: 'free',
@@ -88,73 +98,93 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         subscription_plan: null
       };
 
-      const response = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(defaultProfile)
-      });
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([defaultProfile])
+        .select()
+        .single();
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          console.log('✅ Profile created successfully:', data.profile);
-          setProfile(data.profile);
-        }
+      if (error) {
+        console.error('❌ Error creating profile:', error);
+        throw error;
+      } else {
+        console.log('✅ Profile created successfully:', data);
+        setProfile(data);
       }
     } catch (error) {
-      console.error('❌ Error creating profile:', error);
+      console.error('🔥 Exception creating profile:', error);
     }
   };
 
   useEffect(() => {
     console.log('🚀 UserProvider useEffect running...');
     
-    // Only run on client side
-    if (typeof window === 'undefined') {
-      setLoading(false);
-      return;
-    }
+    let mounted = true;
     
-    // Check for stored auth data
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('auth_user');
-    
-    if (token && userData) {
+    const initializeAuth = async () => {
       try {
-        const parsedUser = JSON.parse(userData);
-        console.log('📝 Found stored session:', {
-          hasToken: !!token,
-          userId: parsedUser?.id,
-          email: parsedUser?.email
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        console.log('📝 Initial session:', {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          email: session?.user?.email
         });
         
-        setUser(parsedUser);
-        if (parsedUser) {
-          console.log('👤 User found in storage, fetching profile...');
-          fetchUserProfile(parsedUser.id, token);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          console.log('👤 User found in session, fetching profile...');
+          await fetchUserProfile(session.user.id);
+        } else {
+          console.log('❌ No user in session');
+          setProfile(null);
         }
       } catch (error) {
-        console.error('❌ Error parsing stored user data:', error);
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+        console.error('❌ Error initializing auth:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-    } else {
-      console.log('❌ No stored session found');
-    }
-    
-    setLoading(false);
+    };
+
+    // Initialize auth state
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        console.log('🔄 Auth state change:', {
+          event,
+          userId: session?.user?.id,
+          email: session?.user?.email
+        });
+        
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const refreshProfile = async () => {
     if (user) {
       console.log('🔄 Refreshing profile for user:', user.id);
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        await fetchUserProfile(user.id, token);
-      }
+      await fetchUserProfile(user.id);
     }
   };
 
@@ -162,28 +192,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) throw new Error('No auth token found');
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('user_id', user.id)
+        .select()
+        .single();
 
-      const response = await fetch('/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updates)
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setProfile(data.profile);
-        } else {
-          throw new Error(data.message);
-        }
-      } else {
-        throw new Error('Failed to update profile');
-      }
+      if (error) throw error;
+      setProfile(data);
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
@@ -192,19 +209,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Clear local storage (only on client side)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('❌ Error signing out:', error);
+      } else {
+        console.log('✅ Signed out successfully');
       }
-      
-      // Clear state
-      setUser(null);
-      setProfile(null);
-      
-      console.log('✅ Signed out successfully');
     } catch (error) {
-      console.error('❌ Error signing out:', error);
+      console.error('🔥 Exception signing out:', error);
     }
   };
 
