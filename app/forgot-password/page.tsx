@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [step, setStep] = useState<'form' | 'success'>('form');
+  const [step, setStep] = useState<'main' | 'sent'>('main');
+  const [email, setEmail] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,16 +16,10 @@ export default function ForgotPasswordPage() {
     setMessage('');
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      setMessage('Password reset email sent! Check your inbox and spam folder.');
-      setStep('success');
+      // For now, since we're using local auth without email service,
+      // we'll just show a message that password reset isn't available
+      setMessage('Password reset functionality is not available with local authentication. Please contact support for assistance.');
+      setStep('sent');
     } catch (error: unknown) {
       console.error('Forgot password error:', error);
       setMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -35,30 +28,48 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  if (step === 'success') {
+  // Success Step
+  if (step === 'sent') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 w-full max-w-md border border-white/20 text-center">
-          <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-4">Check Your Email</h2>
-          <p className="text-gray-300 mb-6">
-            We've sent a password reset link to <strong className="text-white">{email}</strong>
-          </p>
-          <p className="text-sm text-gray-400 mb-6">
-            Click the link in your email to reset your password. Check your spam folder if you don't see the email.
-          </p>
-          
-          <Link
-            href="/login"
-            className="inline-block px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-full hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 font-semibold"
-          >
-            Back to Login
-          </Link>
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 w-full max-w-md border border-white/20">
+          <div className="text-center">
+            <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Password Reset Notice</h3>
+            <p className="text-gray-300 mb-6">
+              Password reset functionality is currently not available with local authentication.
+            </p>
+            <p className="text-sm text-gray-400 mb-6">
+              Please contact support or try using the demo account:
+              <br />
+              <strong>Email:</strong> demo@goldmines.com
+              <br />
+              <strong>Password:</strong> demo123
+            </p>
+            
+            <div className="space-y-3">
+              <Link
+                href="/login"
+                className="block w-full py-2 px-4 bg-emerald-500 text-white rounded-full hover:bg-emerald-600 transition-colors"
+              >
+                Back to Login
+              </Link>
+              
+              <Link
+                href="/"
+                className="text-emerald-400 hover:text-emerald-300 flex items-center justify-center"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Home
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Main Forgot Password Step
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 w-full max-w-md border border-white/20">
@@ -69,9 +80,9 @@ export default function ForgotPasswordPage() {
             </div>
             <span className="text-2xl font-black text-white">goldmines</span>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-2">Forgot Password</h2>
-          <p className="text-gray-300">
-            Enter your email address and we'll send you a link to reset your password.
+          <h2 className="text-3xl font-bold text-white mb-2">Reset Password</h2>
+          <p className="text-gray-400">
+            Enter your email address and we&apos;ll help you reset your password
           </p>
         </div>
 
@@ -85,6 +96,7 @@ export default function ForgotPasswordPage() {
               <input
                 type="email"
                 id="email"
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400 transition-colors"
@@ -99,26 +111,43 @@ export default function ForgotPasswordPage() {
             disabled={loading}
             className="w-full py-3 px-6 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-full hover:from-emerald-600 hover:to-cyan-600 disabled:opacity-50 transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25"
           >
-            {loading ? 'Sending...' : 'Send Reset Link'}
+            {loading ? 'Processing...' : 'Reset Password'}
           </button>
         </form>
 
         {message && (
           <div className={`mt-4 p-3 rounded-lg text-sm ${
-            message.includes('sent') ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+            message.includes('sent') || message.includes('check')
+              ? 'bg-emerald-500/20 text-emerald-300'
+              : 'bg-yellow-500/20 text-yellow-300'
           }`}>
             {message}
           </div>
         )}
 
         <div className="mt-6 text-center">
+          <p className="text-sm text-gray-400">
+            Remember your password?{' '}
+            <Link href="/login" className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors">
+              Back to Login
+            </Link>
+          </p>
+        </div>
+
+        <div className="mt-6 text-center">
           <Link
-            href="/login"
-            className="text-emerald-400 hover:text-emerald-300 flex items-center justify-center"
+            href="/"
+            className="text-gray-400 hover:text-gray-300 flex items-center justify-center"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Login
+            Back to Home
           </Link>
+        </div>
+        
+        <div className="mt-6 p-3 bg-blue-500/20 text-blue-300 rounded-lg text-sm">
+          <p className="font-semibold mb-1">Demo Account Available:</p>
+          <p>Email: demo@goldmines.com</p>
+          <p>Password: demo123</p>
         </div>
       </div>
     </div>

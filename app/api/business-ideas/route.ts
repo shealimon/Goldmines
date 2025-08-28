@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openaiService } from '@/lib/openai';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createBusinessIdea, findBusinessIdeas, findBusinessIdeaByRedditPostId } from '@/lib/local-auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,19 +22,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ OpenAI analysis completed:', analyzedPost.business_idea_name);
 
     // Check if this post has already been analyzed
-    const { data: existingIdea, error: checkError } = await supabase
-      .from('business_ideas')
-      .select('id')
-      .eq('reddit_post_id', reddit_post.id)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found
-      console.error('❌ Error checking existing business idea:', checkError);
-      return NextResponse.json(
-        { success: false, message: 'Error checking database', error: checkError.message },
-        { status: 500 }
-      );
-    }
+    const existingIdea = findBusinessIdeaByRedditPostId(reddit_post.id);
 
     if (existingIdea) {
       return NextResponse.json({
@@ -50,7 +32,7 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    // Save the business idea to the database
+    // Save the business idea to the local storage
     const businessIdeaData = {
       reddit_post_id: reddit_post.id,
       reddit_title: reddit_post.title,
@@ -74,28 +56,16 @@ export async function POST(request: NextRequest) {
       full_analysis: analyzedPost.full_analysis
     };
 
-    console.log('💾 Saving business idea to database...');
+    console.log('💾 Saving business idea to local storage...');
 
-    const { data, error } = await supabase
-      .from('business_ideas')
-      .insert(businessIdeaData)
-      .select()
-      .single();
+    const savedIdea = createBusinessIdea(businessIdeaData);
 
-    if (error) {
-      console.error('❌ Supabase insert error:', error);
-      return NextResponse.json(
-        { success: false, message: 'Error saving business idea', error: error.message },
-        { status: 500 }
-      );
-    }
-
-    console.log('✅ Business idea saved successfully:', data.id);
+    console.log('✅ Business idea saved successfully:', savedIdea.id);
 
     return NextResponse.json({
       success: true,
       message: 'Business idea analyzed and saved successfully',
-      business_idea: data
+      business_idea: savedIdea
     });
 
   } catch (error) {
@@ -111,27 +81,15 @@ export async function GET() {
   try {
     console.log('📖 GET /api/business-ideas - Fetching business ideas...');
     
-    // Fetch all business ideas from the database
-    const { data, error } = await supabase
-      .from('business_ideas')
-      .select('*')
-      .eq('analysis_status', 'completed')
-      .order('created_at', { ascending: false });
+    // Fetch all business ideas from local storage
+    const data = findBusinessIdeas();
     
-    if (error) {
-      console.error('❌ Supabase select error:', error);
-      return NextResponse.json(
-        { success: false, message: 'Error fetching business ideas', error: error.message },
-        { status: 500 }
-      );
-    }
-    
-    console.log('📊 Business ideas retrieved:', data?.length || 0);
+    console.log('📊 Business ideas retrieved:', data.length);
     
     return NextResponse.json({
       success: true,
-      business_ideas: data || [],
-      count: data?.length || 0
+      business_ideas: data,
+      count: data.length
     });
   } catch (error) {
     console.error('❌ Error:', error);

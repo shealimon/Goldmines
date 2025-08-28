@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 import { redditAPI } from '@/lib/reddit';
 import { openaiService } from '@/lib/openai';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createBusinessIdea, createRedditPost, findRedditPostsByIds } from '@/lib/local-auth';
 
 // Helper function to parse structured response
 const parseStructuredResponse = (text: string) => {
@@ -93,7 +87,7 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promi
               category: analyzedPost.category
             });
             
-            // Save to database using already-parsed data
+            // Save to local storage using already-parsed data
             const businessIdeaData = {
               reddit_post_id: post.id,
               reddit_title: post.title,
@@ -117,22 +111,13 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promi
               full_analysis: analyzedPost.full_analysis
             };
 
-            console.log('Saving to database:', {
+            console.log('Saving to local storage:', {
               business_idea_name: businessIdeaData.business_idea_name,
               niche: businessIdeaData.niche,
               category: businessIdeaData.category
             });
 
-            const { data: businessData, error: businessError } = await supabase
-              .from('business_ideas')
-              .insert(businessIdeaData)
-              .select()
-              .single();
-
-            if (businessError) {
-              console.error('Business idea save error:', businessError);
-              continue;
-            }
+            const businessData = createBusinessIdea(businessIdeaData);
 
             console.log('Successfully saved business idea:', businessData.id);
             
@@ -219,21 +204,10 @@ export async function POST(request: Request) {
     const redditPostIds = posts.map(post => post.id);
     console.log('Checking for duplicates:', redditPostIds);
     
-    const { data: existingPosts, error: checkError } = await supabase
-      .from('reddit_posts')
-      .select('reddit_post_id')
-      .in('reddit_post_id', redditPostIds);
-    
-    if (checkError) {
-      console.error('Error checking duplicates:', checkError);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Error checking for duplicate posts'
-      });
-    }
+    const existingPosts = findRedditPostsByIds(redditPostIds);
 
     // Filter out existing posts
-    const existingPostIds = existingPosts?.map(post => post.reddit_post_id) || [];
+    const existingPostIds = existingPosts.map(post => post.reddit_post_id);
     const newPosts = posts.filter(post => !existingPostIds.includes(post.id));
     
     if (newPosts.length === 0) {
@@ -243,34 +217,23 @@ export async function POST(request: Request) {
       });
     }
 
-    console.log(`Inserting ${newPosts.length} new posts into reddit_posts table...`);
+    console.log(`Inserting ${newPosts.length} new posts into local storage...`);
     
-    // Insert new posts into reddit_posts table
-    const { data: insertedPosts, error: insertError } = await supabase
-      .from('reddit_posts')
-      .insert(newPosts.map(post => ({
-        reddit_post_id: post.id,
-        title: post.title,
-        content: post.content || '',
-        author: post.author,
-        subreddit: post.subreddit,
-        score: post.score || 0,
-        num_comments: post.num_comments || 0,
-        url: post.url,
-        permalink: post.permalink,
-        created_utc: post.created_utc
-      })))
-      .select();
+    // Insert new posts into local storage
+    const insertedPosts = newPosts.map(post => createRedditPost({
+      reddit_post_id: post.id,
+      title: post.title,
+      content: post.content || '',
+      author: post.author,
+      subreddit: post.subreddit,
+      score: post.score || 0,
+      num_comments: post.num_comments || 0,
+      url: post.url,
+      permalink: post.permalink,
+      created_utc: post.created_utc
+    }));
 
-    if (insertError) {
-      console.error('Error inserting posts:', insertError);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Error inserting posts into database'
-      });
-    }
-
-    console.log(`Successfully inserted ${insertedPosts.length} posts into reddit_posts table`);
+    console.log(`Successfully inserted ${insertedPosts.length} posts into local storage`);
     
     return NextResponse.json({
       success: true,

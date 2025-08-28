@@ -1,30 +1,62 @@
-import { createClient } from '@supabase/supabase-js'
+// Local authentication client - replaces Supabase
+import { initializeWithDemoData } from './local-auth';
 
-// Use environment variables with fallbacks for build
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://duzyicfcmuhbwypdtelz.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1enlpY2ZjbXVoYnd5cGR0ZWx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU5NDcyMzgsImV4cCI6MjA3MTUyMzIzOH0.DEupJkwdD-q2OqE5nu33ZK0dAHLKIV3wZazibTc6xf8'
-
-// Only log and test connection if not in build mode
-if (typeof window !== 'undefined' || process.env.NODE_ENV === 'development') {
-  console.log('Creating Supabase client with:', { supabaseUrl, supabaseAnonKey: supabaseAnonKey.substring(0, 20) + '...' })
+// Initialize demo data on first load
+if (typeof window === 'undefined') {
+  initializeWithDemoData();
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Mock Supabase-like client for backward compatibility during migration
+export const supabase = {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  }
-})
-
-// Only test connection if not in build mode
-if (typeof window !== 'undefined' || process.env.NODE_ENV === 'development') {
-  supabase.auth.getSession().then(({ error }) => {
-    if (error) {
-      console.error('Supabase connection test failed:', error)
-    } else {
-      console.log('Supabase connection test successful')
+    getSession: async () => {
+      if (typeof window === 'undefined') {
+        return { data: { session: null }, error: null };
+      }
+      
+      const token = localStorage.getItem('auth_token');
+      const user = localStorage.getItem('auth_user');
+      
+      if (token && user) {
+        return {
+          data: {
+            session: {
+              user: JSON.parse(user),
+              access_token: token
+            }
+          },
+          error: null
+        };
+      }
+      
+      return { data: { session: null }, error: null };
+    },
+    
+    onAuthStateChange: (callback: (event: string, session: any) => void) => {
+      // Mock auth state change listener
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => {}
+          }
+        }
+      };
+    },
+    
+    signOut: async () => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+      }
+      return { error: null };
     }
+  },
+  
+  from: () => ({
+    select: () => ({
+      eq: () => ({
+        single: async () => ({ data: null, error: { code: 'PGRST116' } })
+      })
+    })
   })
-}
+};

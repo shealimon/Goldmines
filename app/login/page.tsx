@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,22 +19,34 @@ export default function LoginPage() {
     setMessage('');
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
       });
 
-      if (error) {
-        console.error('Login error:', error);
-        setMessage('Invalid email or password. Please check your credentials.');
-      } else if (data.user) {
+      const data = await response.json();
+
+      if (data.success) {
         console.log('Login successful:', data.user);
         setMessage('Login successful! Redirecting...');
+        
+        // Store auth data in localStorage
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('auth_user', JSON.stringify(data.user));
         
         // Redirect to dashboard after successful login
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 1000);
+      } else {
+        console.error('Login error:', data.message);
+        setMessage(data.message || 'Invalid email or password. Please check your credentials.');
       }
     } catch (error: unknown) {
       console.error('Login exception:', error);

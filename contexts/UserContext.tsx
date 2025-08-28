@@ -1,17 +1,23 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { User } from '@supabase/supabase-js';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface UserProfile {
-  user_id: string;
+export interface User {
+  id: string;
   email: string;
-  display_name: string | null;
-  role: 'trial' | 'pro' | 'ultimate'; // Updated to match your database
-  trial_started_at: string;
-  trial_expires_at: string;
-  stripe_customer_id: string | null;
+  created_at: string;
+}
+
+export interface UserProfile {
+  user_id: string;
+  name: string | null;
+  avatar_url: string | null;
+  api_credits: number;
+  plan_type: string;
+  credits_used_today: number;
+  last_credit_reset: string;
+  subscription_status: string | null;
+  subscription_plan: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -20,12 +26,9 @@ interface UserContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
-  signOut: () => Promise<void>;
-  isSubscriptionActive: () => boolean;
-  canGenerateIdea: () => Promise<boolean>;
-  incrementUsage: () => Promise<void>;
   getUsagePercentage: () => number;
 }
 
@@ -36,35 +39,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = async (userId: string, token: string) => {
     try {
       console.log('🔍 Fetching profile for user:', userId);
       
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      const response = await fetch('/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
-      if (error) {
-        console.error('❌ Supabase error fetching profile:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        // If profile doesn't exist, create it
-        if (error.code === 'PGRST116') {
-          console.log(' Profile not found, creating new one...');
-          await createUserProfile(userId);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Profile fetched successfully:', data.profile);
+          setProfile(data.profile);
+        } else {
+          console.error('❌ Error fetching profile:', data.message);
+          // Create default profile if it doesn't exist
+          await createUserProfile(userId, token);
         }
       } else {
-        console.log('✅ Profile fetched successfully:', data);
-        setProfile(data);
+        console.error('❌ HTTP error fetching profile:', response.status);
+        await createUserProfile(userId, token);
       }
     } catch (error: unknown) {
-      console.error(' Exception in fetchUserProfile:', {
+      console.error('🔥 Exception in fetchUserProfile:', {
         name: error instanceof Error ? error.name : 'Unknown',
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
@@ -73,97 +73,88 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createUserProfile = async (userId: string) => {
+  const createUserProfile = async (userId: string, token: string) => {
     try {
-      console.log('🆕 Creating profile for user:', userId);
+      console.log('🆕 Creating new profile for user:', userId);
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        console.log('👤 User data for profile creation:', {
-          id: user.id,
-          email: user.email,
-          metadata: user.user_metadata
-        });
-        
-        const { error } = await supabase
-          .from('profiles')
-          .upsert({
-            user_id: userId,
-            email: user.email,
-            display_name: user.user_metadata?.display_name || 'User',
-            role: 'trial'
-          }, {
-            onConflict: 'user_id'
-          });
+      const defaultProfile = {
+        name: null,
+        avatar_url: null,
+        api_credits: 1000,
+        plan_type: 'free',
+        credits_used_today: 0,
+        last_credit_reset: new Date().toISOString().split('T')[0],
+        subscription_status: null,
+        subscription_plan: null
+      };
 
-        if (error) {
-          console.error('❌ Error creating profile:', {
-            code: error.code,
-            message: error.message,
-            details: error.details
-          });
-        } else {
-          console.log('✅ Profile created successfully');
-          await fetchUserProfile(userId);
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(defaultProfile)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('✅ Profile created successfully:', data.profile);
+          setProfile(data.profile);
         }
       }
-    } catch (error: unknown) {
-      console.error('💥 Exception in createUserProfile:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        error: error
-      });
+    } catch (error) {
+      console.error('❌ Error creating profile:', error);
     }
   };
 
   useEffect(() => {
     console.log('🚀 UserProvider useEffect running...');
     
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log(' Initial session:', {
-        hasSession: !!session,
-        userId: session?.user?.id,
-        email: session?.user?.email
-      });
-      
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        console.log('👤 User found in session, fetching profile...');
-        fetchUserProfile(session.user.id);
-      } else {
-        console.log('❌ No user in session');
-      }
+    // Only run on client side
+    if (typeof window === 'undefined') {
       setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state change:', {
-          event,
-          userId: session?.user?.id,
-          email: session?.user?.email
+      return;
+    }
+    
+    // Check for stored auth data
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('auth_user');
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        console.log('📝 Found stored session:', {
+          hasToken: !!token,
+          userId: parsedUser?.id,
+          email: parsedUser?.email
         });
         
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setProfile(null);
+        setUser(parsedUser);
+        if (parsedUser) {
+          console.log('👤 User found in storage, fetching profile...');
+          fetchUserProfile(parsedUser.id, token);
         }
-        setLoading(false);
+      } catch (error) {
+        console.error('❌ Error parsing stored user data:', error);
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
       }
-    );
-
-    return () => subscription.unsubscribe();
+    } else {
+      console.log('❌ No stored session found');
+    }
+    
+    setLoading(false);
   }, []);
 
   const refreshProfile = async () => {
     if (user) {
-      console.log(' Refreshing profile for user:', user.id);
-      await fetchUserProfile(user.id);
+      console.log('🔄 Refreshing profile for user:', user.id);
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await fetchUserProfile(user.id, token);
+      }
     }
   };
 
@@ -171,15 +162,28 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No auth token found');
 
-      if (error) throw error;
-      setProfile(data);
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setProfile(data.profile);
+        } else {
+          throw new Error(data.message);
+        }
+      } else {
+        throw new Error('Failed to update profile');
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
@@ -188,57 +192,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // Clear local storage (only on client side)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+      }
+      
+      // Clear state
       setUser(null);
       setProfile(null);
       
-      // Clear any cached data
-      localStorage.removeItem('supabase.auth.token');
-      sessionStorage.clear();
+      console.log('✅ Signed out successfully');
     } catch (error) {
-      console.error('Error during sign out:', error);
+      console.error('❌ Error signing out:', error);
     }
   };
 
-  const isSubscriptionActive = () => {
-    if (!profile) return false;
-    
-    if (profile.role === 'ultimate') return true;
-    if (profile.role === 'pro') return true;
-    
-    // For trial users, check if trial hasn't expired
-    if (profile.role === 'trial') {
-      return new Date(profile.trial_expires_at) > new Date();
-    }
-    
-    return false;
-  };
-
-  const canGenerateIdea = async () => {
-    if (!profile) return false;
-    
-    if (profile.role === 'ultimate') return true;
-    if (profile.role === 'pro') return true;
-    
-    // Trial users can generate ideas during trial period
-    return isSubscriptionActive();
-  };
-
-  const incrementUsage = async () => {
-    console.log('Idea generated - usage tracked');
-  };
-
-  const getUsagePercentage = () => {
-    if (!profile || profile.role !== 'trial') return 0;
-    
-    const now = new Date();
-    const trialStart = new Date(profile.trial_expires_at);
-    const trialEnd = new Date(profile.trial_expires_at);
-    
-    const totalTrialTime = trialEnd.getTime() - trialStart.getTime();
-    const elapsedTime = now.getTime() - trialStart.getTime();
-    
-    return Math.min((elapsedTime / totalTrialTime) * 100, 100);
+  const getUsagePercentage = (): number => {
+    if (!profile) return 0;
+    return Math.round((profile.credits_used_today / profile.api_credits) * 100);
   };
 
   return (
@@ -246,12 +218,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       user,
       profile,
       loading,
+      signOut,
       refreshProfile,
       updateProfile,
-      signOut,
-      isSubscriptionActive,
-      canGenerateIdea,
-      incrementUsage,
       getUsagePercentage
     }}>
       {children}

@@ -1,5 +1,5 @@
 import { dirname } from "path";
-import { fileURLToPath } from "import.meta.url";
+import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,9 +13,7 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals"),
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "react/no-unescaped-entities": "off",
-      "@typescript-eslint/no-unused-vars": "warn"
+      "react/no-unescaped-entities": "off"
     },
   },
 ];

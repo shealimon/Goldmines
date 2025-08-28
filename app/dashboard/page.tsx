@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { useUser } from '@/contexts/UserContext';
 import { 
   LogOut, 
   User, 
@@ -17,19 +17,7 @@ import {
   Filter
 } from 'lucide-react';
 
-interface UserType {
-  id: string;
-  email: string;
-  created_at: string;
-  user_metadata?: {
-    display_name?: string;
-  };
-}
-
-interface ProfileType {
-  display_name?: string;
-  role?: string;
-}
+// Remove these interfaces - using types from UserContext
 
 interface BusinessIdea {
   id: string;
@@ -58,9 +46,7 @@ interface BusinessIdea {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserType | null>(null);
-  const [profile, setProfile] = useState<ProfileType | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, profile, loading, signOut } = useUser();
   const [activeTab, setActiveTab] = useState('business-ideas');
   const [businessIdeas, setBusinessIdeas] = useState<BusinessIdea[]>([]);
   
@@ -74,6 +60,7 @@ export default function DashboardPage() {
   const [selectedIdea, setSelectedIdea] = useState<BusinessIdea | null>(null);
   const [showIdeaDetail, setShowIdeaDetail] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
 
   // Add this state for Reddit data
   const [redditPosts, setRedditPosts] = useState<any[]>([]);
@@ -181,7 +168,7 @@ export default function DashboardPage() {
   const loadAnalyzedIdeas = async () => {
     try {
       console.log('🔄 Loading analyzed ideas...');
-      setLoading(true);
+      setDataLoading(true);
       
       console.log('📥 Making GET request to /api/reddit...');
       const response = await fetch('/api/reddit');
@@ -207,7 +194,7 @@ export default function DashboardPage() {
       console.error('💥 Error loading analyzed ideas:', error);
       setBusinessIdeas([]);
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   };
 
@@ -217,129 +204,28 @@ export default function DashboardPage() {
     loadBusinessIdeas();
   }, []);
 
-  const checkUser = useCallback(async () => {
-    try {
-      console.log('Checking user authentication...');
-      
-      // First check if we have a session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        // Don't redirect, just set loading to false
-        setLoading(false);
-        return;
-      }
-
-      if (session?.user) {
-        // User has an active session
-        console.log('User authenticated:', session.user.email);
-        setUser(session.user as UserType);
-        
-        // Fetch profile data
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-
-        if (profileError) {
-          console.log('Profile not found, will create one');
-        } else {
-          setProfile(profileData);
-        }
-        
-        setLoading(false);
-        return;
-      }
-
-      // If no session, try to get user (for backward compatibility)
-      const { data: { user }, error } = await supabase.auth.getUser();
-      
-      if (error || !user) {
-        console.log('No user found, but not redirecting - allowing access');
-        // Don't redirect, just set loading to false
-        setLoading(false);
-        return;
-      }
-
-      setUser(user as UserType);
-      
-      // Fetch profile data
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (profileError) {
-        console.log('Profile not found, will create one');
+  // Check authentication using UserContext
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        console.log('No user found, redirecting to login');
+        router.push('/login');
       } else {
-        setProfile(profileData);
+        console.log('User authenticated:', user.email);
       }
-      
-    } catch (error) {
-      console.error('Error checking user:', error);
-      // Don't redirect on error, just set loading to false
-      setLoading(false);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [user, loading, router]);
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
-      } else {
-        router.push('/');
-      }
+      await signOut();
+      router.push('/');
     } catch (error) {
       console.error('Logout exception:', error);
     }
   };
 
-  // Listen for auth state changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user as UserType);
-          
-          // Fetch profile data
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
 
-          if (profileError) {
-            console.log('Profile not found, will create one');
-          } else {
-            setProfile(profileData);
-          }
-          
-          setLoading(false);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          // Don't redirect, just clear user data
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setUser(session.user as UserType);
-          setLoading(false);
-        }
-      }
-    );
-
-    // Initial check
-    checkUser();
-
-    return () => subscription.unsubscribe();
-  }, [checkUser]);
 
   // Mock data for now - will be replaced with Reddit API data
   // useEffect(() => {
@@ -451,7 +337,7 @@ export default function DashboardPage() {
                 className="w-full flex items-center space-x-2 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-all duration-200 text-sm"
               >
                 <User className="w-4 h-4" />
-                <span>{profile?.display_name || user?.user_metadata?.display_name || 'User'}</span>
+                <span>{profile?.name || user?.email || 'User'}</span>
               </button>
               
               {showProfileMenu && (
