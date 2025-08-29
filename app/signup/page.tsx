@@ -149,11 +149,11 @@ export default function SignupPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-black text-lg">G</span>
+              <span className="text-white font-normal text-lg">G</span>
             </div>
-            <span className="text-2xl font-black text-white">goldmines</span>
+            <span className="text-2xl font-normal text-white">goldmines</span>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
+          <h2 className="text-2xl font-normal text-white mb-2">Create Account</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

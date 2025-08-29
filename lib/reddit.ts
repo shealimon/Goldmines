@@ -13,20 +13,20 @@ export interface RedditPost {
 
 export const redditAPI = {
   // Exact same subreddits as your Python code
-  SUBREDDITS: [ "Entrepreneur", "indiehackers", "sidehustle", "SideProject", "startups", "smallbusiness", "SaaS", "microsaas"],
-  //SUBREDDITS: [ "Entrepreneur"],
+  //SUBREDDITS: [ "Entrepreneur", "indiehackers", "sidehustle", "SideProject", "startups", "smallbusiness", "SaaS", "microsaas"],
+  //SUBREDDITS: [ "Entrepreneur","indiehackers"],
+  SUBREDDITS: [ "Entrepreneur", "indiehackers", "sidehustle", "SideProject", "startups", "smallbusiness", "SaaS", "microsaas", "Software", "Productivity", "LinkedIn", "FinTech", "Photography", "GameDev", "Accounting", "CyberSecurity", "SEO"],
 
   // Reddit URL endpoints for different sorting options
-  getRedditUrls(subreddit: string, limit: number = 20) {
-    return {
-      // Top (last month, max 20 posts)
+  getRedditUrls(subreddit: string, limit: number = 50) {
+    return {      
       top: `https://www.reddit.com/r/${subreddit}/top.json?t=month&limit=${limit}`,
-      // Hot (trending, max 20 posts)
-      hot: `https://www.reddit.com/r/${subreddit}/hot.json?limit=${limit}`,
-      // New (latest, max 20 posts)
-      new: `https://www.reddit.com/r/${subreddit}/new.json?limit=${limit}`,
-      // Best (overall best posts)
-      best: `https://www.reddit.com/r/${subreddit}/best.json?limit=${limit}`
+      
+      //hot: `https://www.reddit.com/r/${subreddit}/hot.json?limit=${limit}`,
+      
+      //new: `https://www.reddit.com/r/${subreddit}/new.json?limit=${limit}`,
+      
+      //best: `https://www.reddit.com/r/${subreddit}/best.json?limit=${limit}`
     };
   },
 

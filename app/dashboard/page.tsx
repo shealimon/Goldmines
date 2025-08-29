@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Menu,
+  X
 } from 'lucide-react';
 
 // Remove these interfaces - using types from UserContext
@@ -53,12 +55,18 @@ export default function DashboardPage() {
   const { user, profile, loading, signOut } = useUser();
   const [activeTab, setActiveTab] = useState('business-ideas');
   const [businessIdeas, setBusinessIdeas] = useState<BusinessIdea[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(50); // Fixed at 50 rows per page
   const [totalItems, setTotalItems] = useState(0);
   
+  const [selectedIdea, setSelectedIdea] = useState<BusinessIdea | null>(null);
+  const [showIdeaDetail, setShowIdeaDetail] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
+
   // Debug log for businessIdeas state changes
   useEffect(() => {
     console.log('🔍 BusinessIdeas state changed:', {
@@ -66,14 +74,24 @@ export default function DashboardPage() {
       ideas: businessIdeas.map(idea => idea.business_idea_name)
     });
   }, [businessIdeas]);
-  const [selectedIdea, setSelectedIdea] = useState<BusinessIdea | null>(null);
-  const [showIdeaDetail, setShowIdeaDetail] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [dataLoading, setDataLoading] = useState(false);
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showIdeaDetail) {
+        setShowIdeaDetail(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showIdeaDetail]);
 
   // Add this state for Reddit data
   const [redditPosts, setRedditPosts] = useState<any[]>([]);
   const [fetchingReddit, setFetchingReddit] = useState(false);
+
+
 
   // Function to fetch and analyze Reddit data with OpenAI
   const fetchRedditData = async () => {
@@ -237,41 +255,7 @@ export default function DashboardPage() {
       console.error('Logout exception:', error);
     }
   };
-
-
-
-  // Mock data for now - will be replaced with Reddit API data
-  // useEffect(() => {
-  //   const mockIdeas: BusinessIdea[] = [
-  //     {
-  //       id: '1',
-  //       title: 'AI-Powered Meal Planning App',
-  //       description: 'An app that creates personalized meal plans based on dietary restrictions, budget, and local grocery prices',
-  //       market_size: '$15.2B',
-  //       target_audience: 'Health-conscious individuals, busy professionals, families',
-  //       pain_point: 'People struggle to plan meals that are healthy, affordable, and easy to prepare',
-  //       solution: 'AI algorithm that considers nutrition, cost, and preparation time',
-  //       reddit_source: 'r/entrepreneur',
-  //       created_at: '2024-01-15',
-  //       upvotes: 245,
-  //       comments: 67
-  //     },
-  //     {
-  //       id: '2',
-  //       title: 'Local Service Marketplace',
-  //       description: 'A platform connecting local service providers with customers in need of home services',
-  //       market_size: '$400B',
-  //       target_audience: 'Homeowners, small businesses, service providers',
-  //       pain_point: 'Finding reliable local service providers is difficult and time-consuming',
-  //       solution: 'Verified marketplace with reviews, ratings, and instant booking',
-  //       reddit_source: 'r/smallbusiness',
-  //       created_at: '2024-01-14',
-  //       upvotes: 189,
-  //       comments: 43
-  //     }
-  //   ];
-  //   setBusinessIdeas(mockIdeas);
-  // }, []);
+ 
 
   // Update the loading check to be less strict
   if (loading) {
@@ -320,17 +304,102 @@ export default function DashboardPage() {
               </div>
               <span className="text-xl font-black text-gray-900">goldmines</span>
             </div>
+            
+            {/* User Info - Top Right */}
+            <div className="flex items-center space-x-3">
+              {/* Profile Menu Dropdown */}
+              <div className="relative">
+                <button 
+                  onClick={() => {
+                    console.log('Profile button clicked, current state:', showProfileMenu);
+                    setShowProfileMenu(!showProfileMenu);
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">
+                      {profile?.display_name ? profile.display_name.charAt(0).toUpperCase() : user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                    </span>
+                  </div>
+                  <span className="text-sm text-gray-700 font-medium truncate max-w-32">
+                    {profile?.display_name || user?.email || 'User'}
+                  </span>
+                </button>
+                
+                {showProfileMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                    <div className="text-xs text-gray-500 px-3 py-1 border-b border-gray-100">
+                      Profile Menu
+                    </div>
+                    <button
+                      onClick={() => setShowProfileMenu(false)}
+                      className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 transition-colors text-sm flex items-center space-x-2"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>View Profile</span>
+                    </button>
+                    <button
+                      onClick={() => setShowProfileMenu(false)}
+                      className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 transition-colors text-sm flex items-center space-x-2"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
+                    </button>
+                    <hr className="my-1" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 transition-colors text-sm flex items-center space-x-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-56 bg-gray-50 border-r border-gray-200 min-h-screen relative">
-          <nav className="p-4">
-            <div className="space-y-1">
+      <div className="flex h-screen bg-white">
+        {/* Mobile overlay - Moved outside sidebar for better positioning */}
+        {mobileMenuOpen && (
+          <div 
+            className="lg:hidden fixed inset-0 bg-black bg-opacity-10 z-20"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+        
+        {/* Sidebar - Fixed on desktop, overlay on mobile */}
+        <aside className={`${
+          mobileMenuOpen ? 'fixed inset-0 z-50 lg:relative lg:inset-auto' : 'hidden lg:block'
+        } w-56 bg-gray-50 border-r border-gray-200 flex-shrink-0`}>
+          
+          <nav className="p-4 h-full flex flex-col bg-gray-50 relative z-50">
+            {/* Mobile close button */}
+            <div className="lg:hidden flex justify-end mb-4">
               <button
-                onClick={() => setActiveTab('business-ideas')}
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-1 flex-1">
+              <button
+                onClick={() => {
+                  setActiveTab('business-ideas');
+                  setMobileMenuOpen(false);
+                }}
                 className={`w-full flex items-center space-x-2 px-3 py-2 rounded-md transition-all duration-200 text-sm ${
                   activeTab === 'business-ideas' 
                     ? 'bg-emerald-500 text-white shadow-sm' 
@@ -342,7 +411,10 @@ export default function DashboardPage() {
               </button>
               
               <button
-                onClick={() => setActiveTab('marketing-ideas')}
+                onClick={() => {
+                  setActiveTab('marketing-ideas');
+                  setMobileMenuOpen(false);
+                }}
                 className={`w-full flex items-center space-x-2 px-3 py-2 rounded-md transition-all duration-200 text-sm ${
                   activeTab === 'marketing-ideas' 
                     ? 'bg-cyan-500 text-white shadow-sm' 
@@ -354,7 +426,10 @@ export default function DashboardPage() {
               </button>
               
               <button
-                onClick={() => setActiveTab('case-studies')}
+                onClick={() => {
+                  setActiveTab('case-studies');
+                  setMobileMenuOpen(false);
+                }}
                 className={`w-full flex items-center space-x-2 px-3 py-2 rounded-md transition-all duration-200 text-sm ${
                   activeTab === 'case-studies' 
                     ? 'bg-blue-500 text-white shadow-sm' 
@@ -366,380 +441,290 @@ export default function DashboardPage() {
               </button>
             </div>
             
-            {/* Bottom Section - Profile Options */}
-            <div className="absolute bottom-4 left-4 right-4 space-y-1">
-              <button 
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 transition-all duration-200 text-sm"
-              >
-                <User className="w-4 h-4" />
-                <span>{profile?.name || user?.email || 'User'}</span>
-              </button>
-              
-              {showProfileMenu && (
-                <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1 mb-2">
-                  <button
-                    onClick={() => setShowProfileMenu(false)}
-                    className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 transition-colors text-sm flex items-center space-x-2"
-                  >
-                    <User className="w-4 h-4" />
-                    <span>View Profile</span>
-                  </button>
-                  <button
-                    onClick={() => setShowProfileMenu(false)}
-                    className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 transition-colors text-sm flex items-center space-x-2"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Settings</span>
-                  </button>
-                  <hr className="my-1" />
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 transition-colors text-sm flex items-center space-x-2"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Bottom Section - Profile Options - Fixed at bottom */}
+            {/* This section is now moved to the header */}
           </nav>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6">
-          {activeTab === 'business-ideas' && (
-            <div>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-1">New Business Ideas</h1>
-                  <p className="text-gray-600 text-sm">Discover validated business opportunities from Reddit discussions</p>
-                </div>
-                <button 
-                  onClick={fetchRedditData}
-                  disabled={fetchingReddit}
-                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-md hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 font-medium text-sm flex items-center space-x-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Fetch New Ideas</span>
-                </button>
-              </div>
-
-              {/* Search and Filters */}
-              <div className="bg-gray-50 rounded-md p-4 mb-4 border border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
-                      type="text"
-                      placeholder="Search business ideas..."
-                      className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 text-sm"
-                    />
+        {/* Main Content - Scrollable */}
+        <main className="flex-1 overflow-y-auto bg-white">
+          <div className="p-4 lg:p-6 bg-white">
+            {activeTab === 'business-ideas' && (
+              <div className="bg-white">
+                {/* Header */}
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-4 lg:space-y-0">
+                  <div>
+                    <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-1">New Business Ideas</h1>
+                    <p className="text-gray-600 text-sm">Discover validated business opportunities from Reddit discussions</p>
                   </div>
-                  <button className="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-all duration-200 flex items-center space-x-2 text-sm">
-                    <Filter className="w-4 h-4" />
-                    <span>Filters</span>
-                  </button>
+                  <div className="flex flex-col lg:flex-row space-y-2 lg:space-y-0 lg:space-x-2">
+                    <button 
+                      onClick={fetchRedditData}
+                      disabled={fetchingReddit}
+                      className="w-full lg:w-auto px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-md hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 font-medium text-sm flex items-center justify-center lg:justify-start space-x-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Fetch New Ideas</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Ideas Table */}
-              <div className="bg-white rounded-md border border-gray-200 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business Idea</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {currentPageData && currentPageData.length > 0 ? (
-                        currentPageData.map((idea, index) => (
-                          <tr 
-                            key={`data-page-${currentPage}-row-${startIndex + index}-id-${idea.id}`}
+                {/* Search and Filters */}
+                <div className="bg-gray-50 rounded-md p-4 mb-4 border border-gray-200">
+                  <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-3">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search business ideas..."
+                        className="w-full pl-8 pr-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 text-sm"
+                      />
+                    </div>
+                    <button className="w-full lg:w-auto px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center lg:justify-start space-x-2 text-sm">
+                      <Filter className="w-4 h-4" />
+                      <span>Filters</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ideas Table */}
+                <div className="bg-white rounded-md border border-gray-200 overflow-hidden shadow-sm">
+                  {/* Mobile Cards View */}
+                  <div className="lg:hidden bg-white">
+                    {/* Mobile Table Headers */}
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 text-xs font-medium text-gray-500 uppercase tracking-wider">#</div>
+                        <div className="flex-1 text-xs font-medium text-gray-500 uppercase tracking-wider">Business Idea</div>
+                        <div className="w-20 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</div>
+                      </div>
+                    </div>
+                    
+                    {businessIdeas && businessIdeas.length > 0 ? (
+                      <div className="divide-y divide-gray-200 bg-white">
+                        {businessIdeas.map((idea, index) => (
+                          <div 
+                            key={`mobile-idea-${idea.id}`}
                             onClick={() => {
+                              console.log('🔍 Opening idea detail (mobile):', {
+                                business_idea_name: idea.business_idea_name,
+                                has_full_analysis: !!idea.full_analysis,
+                                full_analysis_length: idea.full_analysis?.length || 0,
+                                full_analysis_preview: idea.full_analysis?.substring(0, 100) || 'None'
+                              });
                               setSelectedIdea(idea);
                               setShowIdeaDetail(true);
                             }}
-                            className="hover:bg-gray-50 cursor-pointer transition-all duration-200"
+                            className="p-4 hover:bg-gray-50 cursor-pointer transition-all duration-200"
                           >
-                            <td className="px-3 py-2 text-gray-500 text-sm font-medium">
-                              {startIndex + index + 1}
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="text-gray-900 font-medium text-sm">{idea.business_idea_name || 'Untitled Business Idea'}</div>
-                            </td>
-                            <td className="px-3 py-2 text-gray-500 text-xs">
-                              {idea.reddit_created_utc ? 
-                                new Date(idea.reddit_created_utc * 1000).toLocaleDateString() : 
-                                'Unknown Date'
-                              }
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        // Always show empty rows when no data
-                        Array.from({ length: Math.min(5, pageSize) }).map((_, index) => (
-                          <tr key={`empty-page-${currentPage}-row-${index}-no-data`} className="border-b border-gray-200">
-                            <td className="px-3 py-2 text-gray-400 text-sm">{startIndex + index + 1}</td>
-                            <td className="px-3 py-2 text-gray-400 text-sm">
-                              {index === 0 ? "No business ideas yet - Click 'Fetch New Ideas' to get started" : ""}
-                            </td>
-                            <td className="px-3 py-2 text-gray-400 text-sm">-</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination Controls */}
-                {totalItems > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
-                    <div className="flex items-center justify-between">
-                      {/* Page Size Info - Fixed at 50 */}
-                      <div className="text-sm text-gray-700">
-                        <span className="font-medium">50 rows</span> per page
+                            <div className="flex items-start space-x-3">
+                              <div className="w-12 text-xs text-gray-400 font-medium">
+                                {index + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {idea.business_idea_name || 'Untitled Business Idea'}
+                                </div>
+                              </div>
+                              <div className="w-20 text-xs text-gray-500">
+                                {idea.reddit_created_utc ? 
+                                  new Date(idea.reddit_created_utc * 1000).toLocaleDateString() : 
+                                  'Unknown Date'
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-
-                      {/* Pagination Info */}
-                      <div className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                        <span className="font-medium">{endIndex}</span> of{' '}
-                        <span className="font-medium">{totalItems}</span> results
+                    ) : (
+                      <div className="p-4 text-center text-gray-500">
+                        <p className="text-sm">No business ideas yet</p>
+                        <p className="text-xs mt-1">Click 'Fetch New Ideas' to get started</p>
                       </div>
-
-                      {/* Pagination Navigation */}
-                      <div className="flex items-center space-x-1">
-                        {/* First Page */}
-                        <button
-                          onClick={goToFirstPage}
-                          disabled={currentPage === 1}
-                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="First page"
-                        >
-                          <ChevronsLeft className="w-4 h-4" />
-                        </button>
-
-                        {/* Previous Page */}
-                        <button
-                          onClick={goToPreviousPage}
-                          disabled={currentPage === 1}
-                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Previous page"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-
-                        {/* Page Numbers */}
-                        <div className="flex items-center space-x-1">
-                          {/* Show first page */}
-                          {currentPage > 3 && (
-                            <>
-                              <button
-                                onClick={() => goToPage(1)}
-                                className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                              >
-                                1
-                              </button>
-                              {currentPage > 4 && (
-                                <span className="px-2 text-gray-400">...</span>
-                              )}
-                            </>
-                          )}
-
-                          {/* Show current page and neighbors */}
-                          {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
-                            const page = Math.max(1, currentPage - 1 + i);
-                            if (page > totalPages) return null;
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => goToPage(page)}
-                                className={`px-3 py-1 text-sm rounded transition-colors ${
-                                  page === currentPage
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          })}
-
-                          {/* Show last page */}
-                          {currentPage < totalPages - 2 && (
-                            <>
-                              {currentPage < totalPages - 3 && (
-                                <span className="px-2 text-gray-400">...</span>
-                              )}
-                              <button
-                                onClick={() => goToPage(totalPages)}
-                                className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                              >
-                                {totalPages}
-                              </button>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Next Page */}
-                        <button
-                          onClick={goToNextPage}
-                          disabled={currentPage === totalPages}
-                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Next page"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-
-                        {/* Last Page */}
-                        <button
-                          onClick={goToLastPage}
-                          disabled={currentPage === totalPages}
-                          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Last page"
-                        >
-                          <ChevronsRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
+
+                  {/* Desktop Table View */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business Idea</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {businessIdeas && businessIdeas.length > 0 ? (
+                          businessIdeas.map((idea, index) => (
+                            <tr 
+                              key={`data-row-${index}-id-${idea.id}`}
+                              onClick={() => {
+                                console.log('🔍 Opening idea detail (desktop):', {
+                                  business_idea_name: idea.business_idea_name,
+                                  has_full_analysis: !!idea.full_analysis,
+                                  full_analysis_length: idea.full_analysis?.length || 0,
+                                  full_analysis_preview: idea.full_analysis?.substring(0, 100) || 'None'
+                                });
+                                setSelectedIdea(idea);
+                                setShowIdeaDetail(true);
+                              }}
+                              className="hover:bg-gray-50 cursor-pointer transition-all duration-200"
+                            >
+                              <td className="px-3 py-2 text-gray-500 text-sm font-medium">
+                                {index + 1}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="text-gray-900 font-medium text-sm">{idea.business_idea_name || 'Untitled Business Idea'}</div>
+                              </td>
+                              <td className="px-3 py-2 text-gray-500 text-xs">
+                                {idea.reddit_created_utc ? 
+                                  new Date(idea.reddit_created_utc * 1000).toLocaleDateString() : 
+                                  'Unknown Date'
+                                }
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          // Show empty rows when no data
+                          Array.from({ length: 5 }).map((_, index) => (
+                            <tr key={`empty-row-${index}-no-data`} className="border-b border-gray-200">
+                              <td className="px-3 py-2 text-gray-400 text-sm">{index + 1}</td>
+                              <td className="px-3 py-2 text-gray-400 text-sm">
+                                {index === 0 ? "No business ideas yet - Click 'Fetch New Ideas' to get started" : ""}
+                              </td>
+                              <td className="px-3 py-2 text-gray-400 text-sm">-</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination section completely removed - showing all data */}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {activeTab === 'marketing-ideas' && (
-            <div className="text-center py-16">
-              <TrendingUp className="w-12 h-12 text-cyan-500 mx-auto mb-3" />
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Marketing Ideas</h2>
-              <p className="text-gray-600 text-sm">Coming soon - Marketing strategies and growth hacks</p>
-            </div>
-          )}
+            {activeTab === 'marketing-ideas' && (
+              <div className="text-center py-16">
+                <TrendingUp className="w-12 h-12 text-cyan-500 mx-auto mb-3" />
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Marketing Ideas</h2>
+                <p className="text-gray-600 text-sm">Coming soon - Marketing strategies and growth hacks</p>
+              </div>
+            )}
 
-          {activeTab === 'case-studies' && (
-            <div className="text-center py-16">
-              <DollarSign className="w-12 h-12 text-blue-500 mx-auto mb-3" />
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Case Studies</h2>
-              <p className="text-gray-600 text-sm">Coming soon - Real business success stories and analysis</p>
-            </div>
-          )}
-        </main>
+            {activeTab === 'case-studies' && (
+              <div className="text-center py-16">
+                <DollarSign className="w-12 h-12 text-blue-500 mx-auto mb-3" />
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Case Studies</h2>
+                <p className="text-gray-600 text-sm">Coming soon - Real business success stories and analysis</p>
+              </div>
+            )}
           </div>
+        </main>
+      </div>
 
       {/* Business Idea Detail Modal */}
       {showIdeaDetail && selectedIdea && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-y-auto shadow-2xl border border-gray-100">
-            {/* Header with gradient background */}
-            <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-t-2xl p-8 text-white">
-              <div className="flex items-center justify-between mb-6">
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowIdeaDetail(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-y-auto shadow-2xl border border-gray-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with enhanced UI and colors */}
+            <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-t-2xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
                   </div>
                   <div>
-                    <h1 className="text-3xl font-bold">Business Idea Analysis</h1>
-                    <p className="text-blue-100 text-lg">AI-powered insights from Reddit</p>
+                    <h2 className="text-2xl font-semibold text-white mb-1">Business Idea</h2>
+                    <p className="text-blue-100 text-sm">AI-powered analysis</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowIdeaDetail(false)}
-                  className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                  className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:scale-105"
                 >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
-              {/* Business Idea Name */}
-              <div className="bg-white/20 rounded-xl p-6 backdrop-blur-sm">
-                <h2 className="text-4xl font-bold text-white mb-2">{selectedIdea.business_idea_name || 'Untitled Business Idea'}</h2>
+              {/* Business Idea Name with enhanced styling */}
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+                <h1 className="text-3xl font-bold text-white mb-3 leading-tight">{selectedIdea.business_idea_name || 'Untitled Business Idea'}</h1>
                 <div className="flex items-center space-x-4 text-blue-100">
-                  <span className="flex items-center space-x-2">
+                  <span className="flex items-center space-x-2 bg-white/10 px-3 py-1.5 rounded-lg backdrop-blur-sm">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                     </svg>
-                    <span>{selectedIdea.category || 'General Business'}</span>
+                    <span className="text-sm font-medium">{selectedIdea.category || 'General Business'}</span>
                   </span>
-                  <span className="flex items-center space-x-2">
+                  <span className="flex items-center space-x-2 bg-white/10 px-3 py-1.5 rounded-lg backdrop-blur-sm">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
-                    <span>{selectedIdea.niche || 'Business Opportunity'}</span>
+                    <span className="text-sm font-medium">{selectedIdea.niche || 'Business Opportunity'}</span>
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Content */}
-            <div className="p-8">
+            <div className="p-6">
               {/* Two-column layout for better organization */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Left Column */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Opportunity */}
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">Opportunity</h3>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <h3 className="text-lg text-gray-900">Opportunity</h3>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2">
                       {selectedIdea.opportunity_points?.map((point, index) => (
                         <li key={index} className="flex items-start space-x-3">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="text-gray-700 leading-relaxed">{point}</span>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-gray-700 text-sm leading-relaxed">{point}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Problem it Solves */}
-                  <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-6 border border-red-100">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.08-2.33" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">Problem it Solves</h3>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <h3 className="text-lg text-gray-900">Problem it Solves</h3>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2">
                       {selectedIdea.problems_solved?.map((problem, index) => (
                         <li key={index} className="flex items-start space-x-3">
-                          <div className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="text-gray-700 leading-relaxed">{problem}</span>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-gray-700 text-sm leading-relaxed">{problem}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Target Customer */}
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">Target Customer</h3>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <h3 className="text-lg text-gray-900">Target Customer</h3>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2">
                       {selectedIdea.target_customers?.map((customer, index) => (
                         <li key={index} className="flex items-start space-x-3">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="text-gray-700 leading-relaxed">{customer}</span>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-gray-700 text-sm leading-relaxed">{customer}</span>
                         </li>
                       ))}
                     </ul>
@@ -747,66 +732,50 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Market Size */}
-                  <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-6 border border-purple-100">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">Market Size</h3>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <h3 className="text-lg text-gray-900">Market Size</h3>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2">
                       {selectedIdea.market_size?.map((size, index) => (
                         <li key={index} className="flex items-start space-x-3">
-                          <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="text-gray-700 leading-relaxed">{size}</span>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-gray-700 text-sm leading-relaxed">{size}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Marketing Strategy */}
-                  <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border border-orange-100">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">Marketing Strategy</h3>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <h3 className="text-lg text-gray-900">Marketing Strategy</h3>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2">
                       {selectedIdea.marketing_strategy?.map((strategy, index) => (
                         <li key={index} className="flex items-start space-x-3">
-                          <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <span className="text-gray-700 leading-relaxed">{strategy}</span>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-gray-700 text-sm leading-relaxed">{strategy}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Reddit Source Info */}
-                  <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">Source Information</h3>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <h3 className="text-lg text-gray-900">Source Information</h3>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Subreddit:</span>
-                        <span className="font-medium text-gray-900">r/{selectedIdea.reddit_subreddit}</span>
+                        <span className="text-gray-900">r/{selectedIdea.reddit_subreddit}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Posted:</span>
-                        <span className="font-medium text-gray-900">
+                        <span className="text-gray-900">
                           {selectedIdea.reddit_created_utc ? 
                             new Date(selectedIdea.reddit_created_utc * 1000).toLocaleDateString() : 
                             'Unknown Date'
@@ -815,11 +784,11 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Score:</span>
-                        <span className="font-medium text-gray-900">↑ {selectedIdea.reddit_score}</span>
+                        <span className="text-gray-900">↑ {selectedIdea.reddit_score}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-600">Comments:</span>
-                        <span className="font-medium text-gray-900">💬 {selectedIdea.reddit_comments}</span>
+                        <span className="text-gray-900">💬 {selectedIdea.reddit_comments}</span>
                       </div>
                     </div>
                     {selectedIdea.reddit_url && (
@@ -827,29 +796,15 @@ export default function DashboardPage() {
                         href={selectedIdea.reddit_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-4 w-full inline-flex items-center justify-center px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all duration-200 text-sm font-medium hover:scale-105"
+                        className="mt-3 w-full inline-flex items-center justify-center p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 text-sm"
+                        title="View Original Reddit Post"
                       >
-                        🔗 View Original Reddit Post
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.25 1.25 0 0 1 1.25 1.25z"/>
+                        </svg>
                       </a>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Full Analysis Section */}
-              <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-6 border border-gray-200">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">Full Analysis (Raw OpenAI Response)</h3>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200 max-h-60 overflow-y-auto">
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                    {selectedIdea.full_analysis || 'No full analysis available'}
-                  </pre>
                 </div>
               </div>
             </div>

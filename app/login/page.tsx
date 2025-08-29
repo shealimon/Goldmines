@@ -6,36 +6,61 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-export default function LoginPage() {
+// Authentication Guard Component
+function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  const [message, setMessage] = useState('');
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        setCheckingAuth(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          console.log('User already logged in, redirecting to dashboard');
+        console.log('🔍 AuthGuard: Checking authentication...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('❌ AuthGuard: Error checking session:', error);
+          setIsAuthenticated(false);
+        } else if (session?.user) {
+          console.log('✅ AuthGuard: User authenticated, redirecting to dashboard');
+          setIsAuthenticated(true);
           router.push('/dashboard');
+        } else {
+          console.log('❌ AuthGuard: No session, showing login form');
+          setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error('Error checking auth:', error);
-      } finally {
-        setCheckingAuth(false);
+        console.error('💥 AuthGuard: Exception during auth check:', error);
+        setIsAuthenticated(false);
       }
     };
     
     checkAuth();
   }, [router]);
+
+  // Show nothing while checking authentication
+  if (isAuthenticated === null) {
+    return null;
+  }
+
+  // If authenticated, don't render children (will redirect)
+  if (isAuthenticated === true) {
+    return null;
+  }
+
+  // If not authenticated, show login form
+  return <>{children}</>;
+}
+
+// Login Form Component
+function LoginForm() {
+  const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,16 +68,17 @@ export default function LoginPage() {
     setMessage('');
 
     try {
+      console.log('🔐 Attempting login...');
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
       if (error) {
-        console.error('Login error:', error);
+        console.error('❌ Login error:', error);
         setMessage('Invalid email or password. Please check your credentials.');
       } else if (data.user) {
-        console.log('Login successful:', data.user);
+        console.log('✅ Login successful:', data.user);
         setMessage('Login successful! Redirecting...');
         
         // Wait for auth state to update, then redirect
@@ -61,7 +87,7 @@ export default function LoginPage() {
         }, 500);
       }
     } catch (error: unknown) {
-      console.error('Login exception:', error);
+      console.error('💥 Login exception:', error);
       setMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
@@ -81,21 +107,14 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-3 mb-6">
             <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-black text-lg">G</span>
+              <span className="text-white font-normal text-lg">G</span>
             </div>
-            <span className="text-2xl font-black text-white">goldmines</span>
+            <span className="text-2xl font-normal text-white">goldmines</span>
           </div>
-          <h2 className="text-3xl font-bold text-white mb-2">Login</h2>
+          <h2 className="text-2xl font-normal text-white mb-2">Login</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {checkingAuth && (
-            <div className="text-center py-4">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-400"></div>
-              <p className="text-gray-300 mt-2">Checking authentication...</p>
-            </div>
-          )}
-          
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
               Email Address
@@ -111,7 +130,7 @@ export default function LoginPage() {
                 className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400 transition-colors disabled:opacity-50"
                 placeholder="Enter your email"
                 required
-                disabled={checkingAuth}
+                disabled={loading}
               />
             </div>
           </div>
@@ -131,7 +150,7 @@ export default function LoginPage() {
                 className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-400 transition-colors disabled:opacity-50"
                 placeholder="Enter your password"
                 required
-                disabled={checkingAuth}
+                disabled={loading}
               />
               <button
                 type="button"
@@ -158,7 +177,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || checkingAuth}
+            disabled={loading}
             className="w-full py-3 px-6 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-full hover:from-emerald-600 hover:to-cyan-600 disabled:opacity-50 transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25"
           >
             {loading ? 'Logging In...' : 'Login'}
@@ -193,5 +212,14 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main Login Page Component
+export default function LoginPage() {
+  return (
+    <AuthGuard>
+      <LoginForm />
+    </AuthGuard>
   );
 }

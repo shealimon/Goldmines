@@ -65,126 +65,7 @@ export const openaiService = {
     }
   },
 
-  // Batch analyze multiple posts
-  async analyzeRedditPostsBatch(posts: RedditPost[]): Promise<Array<{post_id: string, analysis: string}>> {
-    // Skip API calls during build if no valid API key
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
-      console.log('Skipping OpenAI batch analysis during build - no valid API key');
-      return posts.map(post => ({ post_id: post.id, analysis: '' }));
-    }
-    
-    try {
-      console.log(`Batch analyzing ${posts.length} Reddit posts with OpenAI...`);
-      
-      // Create numbered list of posts
-      const postsList = posts.map((post, index) => 
-        `${index + 1}. ID: ${post.id}\nTitle: ${post.title}\nContent: ${post.content}\nSubreddit: r/${post.subreddit}\n`
-      ).join('\n');
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0.2,
-        max_tokens: 600 * posts.length, // Scale with number of posts
-        messages: [
-          {
-            role: "system",
-            content: `You will be given multiple Reddit posts in a numbered list.
-For each post, first check if it contains a clear business idea.
-If yes, return the structured extraction in the same format for that post.
-If no, return nothing for that post.
-
-Return as a JSON array, where each object includes:
-{
-  "post_id": "actual_reddit_post_id",
-  "analysis": "the full formatted text as per rules OR empty string"
-}
-
-Rules for analysis format (for the "analysis" field):
-Business Idea:
-[one-line, crafted title in 3 to 8 words that clearly conveys the core value; do NOT copy verbatim from the post; do NOT use trademarked game or product names in the title; always make it a generic, brand-safe title]
-
-Opportunity:
-- [bullets]
-
-Problem it Solves:
-- [bullets]
-
-Target Customer:
-- [bullets]
-
-Market Size:
-- [bullets with dollar values, e.g., $2B, $15M]
-
-Niche:
-[one line: single word or multiple comma-separated words if multiple niches]
-
-Category:
-[one line: industry category]
-
-Marketing Strategy:
-- [bullets]
-
-CRITICAL REQUIREMENTS:
-1. Return ONLY valid JSON array, no markdown, no explanations, no other text
-2. Use double quotes for all strings
-3. Escape any quotes inside the analysis text
-4. Use the actual post ID from the input (the ID after "ID:" in each post)
-5. If no business idea, set analysis to empty string ""
-
-Example format:
-[{"post_id": "abc123", "analysis": "Business Idea:\\nSample Title\\n\\nOpportunity:\\n- Point 1"}]`
-          },
-          {
-            role: "user",
-            content: postsList
-          }
-        ]
-      });
-
-      const responseText = completion.choices[0]?.message?.content || '';
-      console.log('OpenAI batch response:', responseText.substring(0, 200));
-
-      try {
-        // Try to clean up the response text first
-        let cleanedResponse = responseText.trim();
-        
-        // Remove any markdown code blocks if present
-        if (cleanedResponse.startsWith('```json')) {
-          cleanedResponse = cleanedResponse.replace(/```json\n?/, '').replace(/\n?```$/, '');
-        } else if (cleanedResponse.startsWith('```')) {
-          cleanedResponse = cleanedResponse.replace(/```\n?/, '').replace(/\n?```$/, '');
-        }
-        
-        const result = JSON.parse(cleanedResponse);
-        return Array.isArray(result) ? result : [];
-      } catch (parseError) {
-        console.error('Failed to parse JSON response:', parseError);
-        console.log('Raw response:', responseText);
-        
-        // Fallback: process each post individually
-        console.log('Falling back to individual post processing...');
-        const individualResults = [];
-        
-        for (const post of posts) {
-          try {
-            const analyzedPost = await this.analyzeRedditPost(post);
-            individualResults.push({
-              post_id: post.id,
-              analysis: analyzedPost.full_analysis
-            });
-          } catch (individualError) {
-            console.error(`Error processing individual post ${post.id}:`, individualError);
-          }
-        }
-        
-        return individualResults;
-      }
-
-    } catch (error) {
-      console.error('Error in batch analysis:', error);
-      throw error;
-    }
-  },
 
   // Single post analysis (for backward compatibility)
   async analyzeRedditPost(post: RedditPost): Promise<AnalyzedPost> {
@@ -229,7 +110,7 @@ Your task:
 3) If yes, extract and format strictly like this:
 
 Business Idea:
-[one-line, crafted title in 3–8 words that clearly conveys the core value; do NOT copy verbatim from the post; write the best, most descriptive title]
+[one-line, crafted title in 3 to 8 words that clearly conveys the core value; do NOT copy verbatim from the post; do NOT use trademarked game or product names in the title; always make it a generic, brand-safe title]
 
 Opportunity:
 - [bullets]
@@ -272,38 +153,132 @@ Rules:
       const responseText = completion.choices[0]?.message?.content || '';
       console.log('OpenAI response (full):', responseText);
 
-      // Parse the structured text response
+      // Parse the structured text response using improved section boundary detection
       const parseStructuredResponse = (text: string) => {
         console.log('Parsing response text:', text);
         
         const extractSection = (text: string, sectionName: string): string[] => {
-          // More precise regex that captures content until the next section
-          const regex = new RegExp(`${sectionName}:([\\s\\S]*?)(?=\\n[A-Z][a-z]+:|$)`, 'i');
-          const match = text.match(regex);
-          console.log(`Section "${sectionName}" match:`, match);
-          if (!match) return [];
+          // Find the start of the section
+          const sectionStart = text.indexOf(sectionName + ':');
+          if (sectionStart === -1) return [];
           
-          const lines = match[1].split('\n');
+          // Define all possible section names to look for
+          const sectionNames = [
+            'Business Idea:', 'Opportunity:', 'Problem it Solves:', 'Target Customer:', 
+            'Market Size:', 'Niche:', 'Category:', 'Marketing Strategy:'
+          ];
+          
+          // Find the start of the next section by looking for the next section header
+          let sectionEnd = text.length;
+          const remainingText = text.substring(sectionStart + sectionName.length + 1);
+          
+          for (const nextSection of sectionNames) {
+            if (nextSection === sectionName + ':') continue; // Skip current section
+            
+            const nextSectionIndex = remainingText.indexOf(nextSection);
+            if (nextSectionIndex !== -1) {
+              sectionEnd = sectionStart + sectionName.length + 1 + nextSectionIndex;
+              break;
+            }
+          }
+          
+          // Extract the section content
+          const sectionContent = text.substring(sectionStart + sectionName.length + 1, sectionEnd);
+          
+          // Parse bullet points and clean up
+          const lines = sectionContent.split('\n');
           const bulletPoints = lines
             .map(line => line.trim())
             .filter(line => line.startsWith('-'))
             .map(line => line.substring(1).trim())
-            .filter(line => line.length > 0);
+            .filter(line => line.length > 0)
+            .filter(line => {
+              // Remove any lines that contain section headers
+              const hasSectionHeader = sectionNames.some(name => line.includes(name));
+              if (hasSectionHeader) {
+                console.log(`🚫 Removed section header from ${sectionName}:`, line);
+                return false;
+              }
+              return true;
+            });
           
-          console.log(`Extracted "${sectionName}" bullets:`, bulletPoints);
+          console.log(`📝 Extracted ${bulletPoints.length} items for ${sectionName}:`, bulletPoints);
           return bulletPoints;
         };
 
         const extractSingleLine = (text: string, sectionName: string): string => {
-          // More precise regex that captures content until the next section or end
-          const regex = new RegExp(`${sectionName}:\\s*([^\\n]+)`, 'i');
-          const match = text.match(regex);
-          console.log(`Single line "${sectionName}" match:`, match);
-          if (!match) return '';
+          console.log(`🔍 Extracting ${sectionName} from text...`);
           
-          const result = match[1].trim().replace(/^\[|\]$/g, '').trim();
-          console.log(`Extracted "${sectionName}":`, result);
-          return result;
+          // Method 1: Try exact section match first
+          const sectionStart = text.indexOf(sectionName + ':');
+          if (sectionStart !== -1) {
+            // Find the end of this section by looking for the next section
+            const sectionNames = [
+              'Business Idea:', 'Opportunity:', 'Problem it Solves:', 'Target Customer:', 
+              'Market Size:', 'Niche:', 'Category:', 'Marketing Strategy:'
+            ];
+            
+            let sectionEnd = text.length;
+            const remainingText = text.substring(sectionStart + sectionName.length + 1);
+            
+            for (const nextSection of sectionNames) {
+              if (nextSection === sectionName + ':') continue;
+              const nextSectionIndex = remainingText.indexOf(nextSection);
+              if (nextSectionIndex !== -1) {
+                sectionEnd = sectionStart + sectionName.length + 1 + nextSectionIndex;
+                break;
+              }
+            }
+            
+            // Extract content and get first line
+            const sectionContent = text.substring(sectionStart + sectionName.length + 1, sectionEnd);
+            const firstLine = sectionContent.split('\n')[0].trim();
+            
+            if (firstLine && firstLine.length > 0) {
+              const result = firstLine.replace(/^\[|\]$/g, '').trim();
+              console.log(`✅ ${sectionName} extracted via section method:`, result);
+              return result;
+            }
+          }
+          
+          // Method 2: Try multiple regex patterns
+          const regexPatterns = [
+            new RegExp(`${sectionName}:?\\s*([^\\n\\r]+)`, 'i'),
+            new RegExp(`${sectionName}\\s*:\\s*([^\\n\\r]+)`, 'i'),
+            new RegExp(`${sectionName}\\s*=\\s*([^\\n\\r]+)`, 'i'),
+            new RegExp(`${sectionName}\\s*([^\\n\\r]+)`, 'i'),
+            new RegExp(`${sectionName}\\s*:\\s*([^\\n\\r]+?)(?=\\n|\\r|$)`, 'i')
+          ];
+          
+          for (const pattern of regexPatterns) {
+            const match = text.match(pattern);
+            if (match && match[1] && match[1].trim().length > 0) {
+              const result = match[1].trim();
+              console.log(`✅ ${sectionName} extracted via regex:`, result);
+              return result;
+            }
+          }
+          
+          // Method 3: Look for the section anywhere in the text
+          const lowerText = text.toLowerCase();
+          const lowerSectionName = sectionName.toLowerCase();
+          const sectionIndex = lowerText.indexOf(lowerSectionName + ':');
+          
+          if (sectionIndex !== -1) {
+            // Find the end of this line
+            const textAfterSection = text.substring(sectionIndex + sectionName.length + 1);
+            const endOfLine = textAfterSection.indexOf('\n');
+            const endOfLineIndex = endOfLine !== -1 ? endOfLine : textAfterSection.length;
+            
+            const content = textAfterSection.substring(0, endOfLineIndex).trim();
+            if (content && content.length > 0) {
+              console.log(`✅ ${sectionName} extracted via line search:`, content);
+              return content;
+            }
+          }
+          
+          console.log(`❌ Could not extract ${sectionName}`);
+          return '';
         };
 
         // Try multiple extraction methods for business idea name
@@ -346,7 +321,47 @@ Rules:
           marketing_strategy: marketingStrategy
         };
         
-        console.log('Parsed result:', parsed);
+        // Enhanced fallback for niche and category if extraction failed
+        if (!parsed.niche || parsed.niche.length === 0) {
+          console.log('🔍 Niche extraction failed, trying keyword fallback...');
+          // Try to find industry keywords in the text
+          const industryKeywords = [
+            'tech', 'software', 'saas', 'ecommerce', 'healthcare', 'finance', 'education',
+            'marketing', 'consulting', 'real estate', 'food', 'fitness', 'travel', 'entertainment',
+            'automotive', 'fashion', 'beauty', 'home', 'garden', 'pets', 'sports', 'gaming',
+            'corporate', 'training', 'gamification', 'cybersecurity'
+          ];
+          
+          const lowerText = text.toLowerCase();
+          for (const keyword of industryKeywords) {
+            if (lowerText.includes(keyword)) {
+              parsed.niche = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+              console.log('🔍 Keyword-based niche fallback:', parsed.niche);
+              break;
+            }
+          }
+        }
+        
+        if (!parsed.category || parsed.category.length === 0) {
+          console.log('🔍 Category extraction failed, trying inference...');
+          // Try to infer category from niche or content
+          if (parsed.niche && parsed.niche.length > 0) {
+            if (['tech', 'software', 'saas'].includes(parsed.niche.toLowerCase())) {
+              parsed.category = 'Technology';
+            } else if (['healthcare', 'fitness'].includes(parsed.niche.toLowerCase())) {
+              parsed.category = 'Healthcare';
+            } else if (['finance', 'banking'].includes(parsed.niche.toLowerCase())) {
+              parsed.category = 'Finance';
+            } else if (['education', 'training'].includes(parsed.niche.toLowerCase())) {
+              parsed.category = 'Education';
+            } else {
+              parsed.category = 'Business Services';
+            }
+            console.log('🔍 Inferred category from niche:', parsed.category);
+          }
+        }
+        
+        console.log('📝 Final parsed result:', parsed);
         return parsed;
       };
 
@@ -361,8 +376,8 @@ Rules:
           problems_solved: ['Addresses market need'],
           target_customers: ['General audience'],
           market_size: ['Market analysis needed'],
-          niche: 'Business opportunity',
-          category: 'General business',
+          niche: 'Unknown',
+          category: 'Unknown',
           marketing_strategy: ['Marketing strategy required']
         };
       }
@@ -375,8 +390,8 @@ Rules:
         problems_solved: analysis.problems_solved || ['Addresses market need'],
         target_customers: analysis.target_customers || ['General audience'],
         market_size: analysis.market_size || ['Market analysis needed'],
-        niche: analysis.niche || 'Business opportunity',
-        category: analysis.category || 'General business',
+        niche: analysis.niche || 'Unknown',
+        category: analysis.category || 'Unknown',
         marketing_strategy: analysis.marketing_strategy || ['Marketing strategy required'],
         full_analysis: responseText
       };

@@ -2,41 +2,7 @@ import { NextResponse } from 'next/server';
 import { redditAPI } from '@/lib/reddit';
 import { openaiService } from '@/lib/openai';
 import { supabase } from '@/lib/supabase';
-
-// Helper function to parse structured response
-const parseStructuredResponse = (text: string) => {
-  const extractSection = (text: string, sectionName: string): string[] => {
-    const regex = new RegExp(`${sectionName}:([\\s\\S]*?)(?=\\n\\n|\\n[A-Za-z]|$)`, 'i');
-    const match = text.match(regex);
-    if (!match) return [];
-    
-    return match[1]
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.startsWith('-'))
-      .map(line => line.substring(1).trim())
-      .filter(line => line.length > 0);
-  };
-
-  const extractSingleLine = (text: string, sectionName: string): string => {
-    const regex = new RegExp(`${sectionName}:([\\s\\n\\S]*?)(?=\\n\\n|\\n[A-Za-z]|$)`, 'i');
-    const match = text.match(regex);
-    if (!match) return '';
-    
-    return match[1].trim().split('\n')[0].replace(/^\[|\]$/g, '').trim();
-  };
-
-  return {
-    business_idea_name: extractSingleLine(text, 'Business Idea'),
-    opportunity_points: extractSection(text, 'Opportunity'),
-    problems_solved: extractSection(text, 'Problem it Solves'),
-    target_customers: extractSection(text, 'Target Customer'),
-    market_size: extractSection(text, 'Market Size'),
-    niche: extractSingleLine(text, 'Niche'),
-    category: extractSingleLine(text, 'Category'),
-    marketing_strategy: extractSection(text, 'Marketing Strategy')
-  };
-};
+import { NextRequest } from 'next/server';
 
 // Helper function to detect duplicate posts across subreddits
 const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplicate: boolean; reason?: string; existingId?: string }> => {
@@ -56,11 +22,11 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
       };
     }
 
-    // 1.5. Check by exact title match (catches crossposts with identical titles)
+    // 2. Check by exact title match (catches crossposts with identical titles)
     const { data: existingByExactTitle, error: exactTitleError } = await supabase
       .from('business_ideas')
       .select('id, reddit_title, reddit_subreddit, reddit_author')
-      .eq('reddit_title', post.title) // Exact title match
+      .eq('reddit_title', post.title)
       .single();
 
     if (existingByExactTitle) {
@@ -72,60 +38,7 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
       };
     }
 
-    // 2. Check by title and content similarity (same content, different post)
-    const normalizedTitle = post.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    const normalizedContent = post.content.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    
-    // Check for very similar titles first
-    const { data: existingByTitle, error: titleError } = await supabase
-      .from('business_ideas')
-      .select('id, reddit_title, reddit_subreddit, reddit_author, reddit_content')
-      .ilike('reddit_title', `%${normalizedTitle.substring(0, 30)}%`)
-      .limit(3);
-
-    if (existingByTitle && existingByTitle.length > 0) {
-      for (const existing of existingByTitle) {
-        const existingTitle = existing.reddit_title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        const existingContent = existing.reddit_content.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        
-        const titleSimilarity = calculateSimilarity(normalizedTitle, existingTitle);
-        const contentSimilarity = calculateSimilarity(normalizedContent, existingContent);
-        
-        // If both title and content are very similar, it's likely a duplicate
-        if (titleSimilarity > 0.7 && contentSimilarity > 0.6) {
-          return { 
-            isDuplicate: true, 
-            reason: `Very similar content (Title: ${Math.round(titleSimilarity * 100)}%, Content: ${Math.round(contentSimilarity * 100)}%) already exists in r/${existing.reddit_subreddit} by ${existing.reddit_author}`, 
-            existingId: existing.id 
-          };
-        }
-      }
-    }
-
-    // 3. Check by additional title similarity patterns (different from step 2)
-    const { data: additionalTitleMatches, error: additionalTitleError } = await supabase
-      .from('business_ideas')
-      .select('id, reddit_title, reddit_subreddit, reddit_author')
-      .ilike('reddit_title', `%${normalizedTitle.substring(0, 15)}%`)
-      .limit(2)
-      .neq('id', existingByTitle?.[0]?.id || '') // Exclude already checked posts
-      .single();
-
-    if (additionalTitleMatches) {
-      // Calculate title similarity percentage
-      const existingTitle = additionalTitleMatches.reddit_title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-      const similarity = calculateSimilarity(normalizedTitle, existingTitle);
-      
-      if (similarity > 0.8) { // 80% similarity threshold
-        return { 
-          isDuplicate: true, 
-          reason: `Very similar title (${Math.round(similarity * 100)}% match) already exists in r/${additionalTitleMatches.reddit_subreddit}`, 
-          existingId: additionalTitleMatches.id 
-        };
-      }
-    }
-
-    // 4. Check by author + similar content (same user posting similar ideas)
+    // 3. Check by author + similar content (same user posting similar ideas)
     const { data: existingByAuthor, error: authorError } = await supabase
       .from('business_ideas')
       .select('id, reddit_title, reddit_subreddit, reddit_content')
@@ -136,37 +49,21 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
       for (const existing of existingByAuthor) {
         const existingContent = existing.reddit_content.toLowerCase().replace(/[^\w\s]/g, '').trim();
         const currentContent = post.content.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        const contentSimilarity = calculateSimilarity(currentContent, existingContent);
         
-        if (contentSimilarity > 0.7) { // 70% content similarity threshold
-          return { 
-            isDuplicate: true, 
-            reason: `Similar content by same author (${Math.round(contentSimilarity * 100)}% match) already exists in r/${existing.reddit_subreddit}`, 
-            existingId: existing.id 
-          };
-        }
-      }
-    }
-
-    // 5. Check if same user already has a post with similar title (prevent user from posting same idea multiple times)
-    const { data: existingByUserTitle, error: userTitleError } = await supabase
-      .from('business_ideas')
-      .select('id, reddit_title, reddit_subreddit')
-      .eq('reddit_author', post.author)
-      .ilike('reddit_title', `%${normalizedTitle.substring(0, 25)}%`)
-      .limit(3);
-
-    if (existingByUserTitle && existingByUserTitle.length > 0) {
-      for (const existing of existingByUserTitle) {
-        const existingTitle = existing.reddit_title.toLowerCase().replace(/[^\w\s]/g, '').trim();
-        const titleSimilarity = calculateSimilarity(normalizedTitle, existingTitle);
-        
-        if (titleSimilarity > 0.6) { // 60% title similarity threshold for same user
-          return { 
-            isDuplicate: true, 
-            reason: `Same user already posted similar idea (${Math.round(titleSimilarity * 100)}% title match) in r/${existing.reddit_subreddit}`, 
-            existingId: existing.id 
-          };
+        // Simple content similarity check
+        if (existingContent.length > 0 && currentContent.length > 0) {
+                  const commonWords = existingContent.split(' ').filter((word: string) => 
+          currentContent.includes(word) && word.length > 3
+        );
+          const similarity = commonWords.length / Math.max(existingContent.split(' ').length, currentContent.split(' ').length);
+          
+          if (similarity > 0.3) { // 30% similarity threshold
+            return { 
+              isDuplicate: true, 
+              reason: `Similar content by same author (${Math.round(similarity * 100)}% match) already exists in r/${existing.reddit_subreddit}`, 
+              existingId: existing.id 
+            };
+          }
         }
       }
     }
@@ -178,40 +75,104 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
   }
 };
 
-// Helper function to calculate similarity between two strings
-const calculateSimilarity = (str1: string, str2: string): number => {
-  if (str1 === str2) return 1.0;
-  if (str1.length === 0 || str2.length === 0) return 0.0;
-  
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-  
-  if (longer.length === 0) return 1.0;
-  
-  // Simple Levenshtein distance-based similarity
-  const distance = levenshteinDistance(longer, shorter);
-  return (longer.length - distance) / longer.length;
-};
-
-// Helper function to calculate Levenshtein distance
-const levenshteinDistance = (str1: string, str2: string): number => {
-  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-  
-  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-  
-  for (let j = 1; j <= str2.length; j++) {
-    for (let i = 1; i <= str1.length; i++) {
-      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-      matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1,     // deletion
-        matrix[j - 1][i] + 1,     // insertion
-        matrix[j - 1][i - 1] + indicator // substitution
-      );
+// Helper function to clean corrupted data in database columns
+const cleanCorruptedData = async (supabase: any) => {
+  try {
+    console.log('🧹 Starting database cleanup for corrupted data...');
+    
+    const { data: ideas, error: fetchError } = await supabase
+      .from('business_ideas')
+      .select('id, opportunity_points, problems_solved, target_customers, marketing_strategy, market_size');
+    
+    if (fetchError) {
+      console.error('❌ Error fetching ideas for cleanup:', fetchError);
+      return;
     }
+    
+    console.log(`📊 Found ${ideas.length} ideas to check for corruption...`);
+    
+    let cleanedCount = 0;
+    
+    for (const idea of ideas) {
+      let needsUpdate = false;
+      const updates: any = {};
+      
+      // Clean opportunity_points - remove market size patterns
+      if (idea.opportunity_points && Array.isArray(idea.opportunity_points)) {
+        const cleaned = idea.opportunity_points.filter((point: string) => {
+          const hasDollarAmount = /\$\d+[BMK]/.test(point);
+          const hasSectionHeader = /^(Market Size|Opportunity|Problem it Solves|Target Customer|Marketing Strategy):/i.test(point);
+          return !hasDollarAmount && !hasSectionHeader;
+        });
+        
+        if (cleaned.length !== idea.opportunity_points.length) {
+          updates.opportunity_points = cleaned;
+          needsUpdate = true;
+        }
+      }
+      
+      // Clean problems_solved - remove market size patterns
+      if (idea.problems_solved && Array.isArray(idea.problems_solved)) {
+        const cleaned = idea.problems_solved.filter((problem: string) => {
+          const hasDollarAmount = /\$\d+[BMK]/.test(problem);
+          const hasSectionHeader = /^(Market Size|Opportunity|Problem it Solves|Target Customer|Marketing Strategy):/i.test(problem);
+          return !hasDollarAmount && !hasSectionHeader;
+        });
+        
+        if (cleaned.length !== idea.problems_solved.length) {
+          updates.problems_solved = cleaned;
+          needsUpdate = true;
+        }
+      }
+      
+      // Clean target_customers - remove market size patterns
+      if (idea.target_customers && Array.isArray(idea.target_customers)) {
+        const cleaned = idea.target_customers.filter((customer: string) => {
+          const hasDollarAmount = /\$\d+[BMK]/.test(customer);
+          const hasSectionHeader = /^(Market Size|Opportunity|Problem it Solves|Target Customer|Marketing Strategy):/i.test(customer);
+          return !hasDollarAmount && !hasSectionHeader;
+        });
+        
+        if (cleaned.length !== idea.target_customers.length) {
+          updates.target_customers = cleaned;
+          needsUpdate = true;
+        }
+      }
+      
+      // Clean marketing_strategy - remove market size patterns
+      if (idea.marketing_strategy && Array.isArray(idea.marketing_strategy)) {
+        const cleaned = idea.marketing_strategy.filter((strategy: string) => {
+          const hasDollarAmount = /\$\d+[BMK]/.test(strategy);
+          const hasSectionHeader = /^(Market Size|Opportunity|Problem it Solves|Target Customer|Marketing Strategy):/i.test(strategy);
+          return !hasDollarAmount && !hasSectionHeader;
+        });
+        
+        if (cleaned.length !== idea.marketing_strategy.length) {
+          updates.marketing_strategy = cleaned;
+          needsUpdate = true;
+        }
+      }
+      
+      // Update the database if any cleaning was needed
+      if (needsUpdate) {
+        const { error: updateError } = await supabase
+          .from('business_ideas')
+          .update(updates)
+          .eq('id', idea.id);
+        
+        if (updateError) {
+          console.error(`❌ Error updating idea ${idea.id}:`, updateError);
+        } else {
+          cleanedCount++;
+        }
+      }
+    }
+    
+    console.log(`🎉 Database cleanup completed! Cleaned ${cleanedCount} ideas.`);
+    
+  } catch (error) {
+    console.error('💥 Error during database cleanup:', error);
   }
-  
-  return matrix[str2.length][str1.length];
 };
 
 // Process posts in batches with parallel processing
@@ -268,21 +229,15 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promi
             console.log(`Analyzing post: ${post.title.substring(0, 50)}...`);
             const analyzedPost = await openaiService.analyzeRedditPost(post);
             
-            console.log('Analyzed post data:', {
-              business_idea_name: analyzedPost.business_idea_name,
-              niche: analyzedPost.niche,
-              category: analyzedPost.category
-            });
-
             // Validate that full_analysis is not empty
             if (!analyzedPost.full_analysis || analyzedPost.full_analysis.trim().length < 50) {
-              console.log(`⚠️ Skipping post ${post.id} - full_analysis is empty or too short (${analyzedPost.full_analysis?.length || 0} characters)`);
+              console.log(`⚠️ Skipping post ${post.id} - full_analysis is empty or too short`);
               continue;
             }
 
             // Validate that business idea name is not empty
             if (!analyzedPost.business_idea_name || analyzedPost.business_idea_name.trim().length < 5) {
-              console.log(`⚠️ Skipping post ${post.id} - business_idea_name is empty or too short (${analyzedPost.business_idea_name?.length || 0} characters)`);
+              console.log(`⚠️ Skipping post ${post.id} - business_idea_name is empty or too short`);
               continue;
             }
             
@@ -310,12 +265,6 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promi
               full_analysis: analyzedPost.full_analysis
             };
 
-            console.log('Saving to database:', {
-              business_idea_name: businessIdeaData.business_idea_name,
-              niche: businessIdeaData.niche,
-              category: businessIdeaData.category
-            });
-
             const { data: businessData, error: businessError } = await supabase
               .from('business_ideas')
               .insert(businessIdeaData)
@@ -328,14 +277,6 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promi
               // Check if it's a duplicate constraint violation
               if (businessError.code === '23505') {
                 console.log(`🚫 Database constraint violation - duplicate detected for post ${post.id}`);
-                
-                // Get more details about the constraint violation
-                if (businessError.message.includes('unique_reddit_post_id')) {
-                  console.log(`🚫 Duplicate reddit_post_id: ${post.id}`);
-                } else if (businessError.message.includes('unique_title_author')) {
-                  console.log(`🚫 Duplicate title + author combination: "${post.title}" by ${post.author}`);
-                }
-                
                 continue;
               }
               
@@ -387,6 +328,8 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promi
   return allProcessedPosts;
 };
 
+
+
 export async function POST(request: Request) {
   try {
     const { testMode = false } = await request.json();
@@ -400,7 +343,7 @@ export async function POST(request: Request) {
         .from('business_ideas')
         .select('id, reddit_title, reddit_author, reddit_subreddit, created_at')
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(50);
       
       if (existingError) {
         console.log('⚠️ Error fetching existing posts:', existingError);
@@ -414,8 +357,8 @@ export async function POST(request: Request) {
         })));
       }
       
-      // Fetch 10 posts from multiple subreddits for testing
-      const posts = await redditAPI.fetchAllSubreddits(10);
+      // Fetch 50 posts from multiple subreddits for testing
+      const posts = await redditAPI.fetchAllSubreddits(50);
       console.log('Fetched posts from Reddit:', posts.length);
       
       if (posts.length === 0) {
@@ -441,10 +384,10 @@ export async function POST(request: Request) {
     }
 
     // Your existing code for normal mode continues here...
-    console.log('POST /api/reddit - Fetching 10 posts from Reddit...');
+    console.log('POST /api/reddit - Fetching 50 posts from Reddit...');
     
-    // Fetch 10 posts from Reddit
-    const posts = await redditAPI.fetchAllSubreddits(10);
+    // Fetch 50 posts from Reddit
+    const posts = await redditAPI.fetchAllSubreddits(50);
     console.log('Posts fetched from Reddit:', posts.length);
     
     if (posts.length === 0) {
@@ -468,7 +411,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ 
         success: false, 
         message: 'Error checking for duplicate posts'
-      });
+      }, { status: 500 });
     }
 
     // Filter out existing posts
@@ -506,7 +449,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ 
         success: false, 
         message: 'Error inserting posts into database'
-      });
+      }, { status: 500 });
     }
 
     console.log(`Successfully inserted ${insertedPosts.length} posts into reddit_posts table`);
@@ -523,6 +466,54 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       success: false, 
       message: 'Internal server error'
+    }, { status: 500 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log('📥 GET request received for /api/reddit');
+    
+    // Check if this is a cleanup request
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+    
+    if (action === 'cleanup') {
+      console.log('🧹 Cleanup action requested');
+      await cleanCorruptedData(supabase);
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Database cleanup completed successfully' 
+      });
+    }
+    
+    // Regular GET request - fetch existing business ideas
+    const { data: ideas, error } = await supabase
+      .from('business_ideas')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Error fetching business ideas:', error);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Failed to fetch business ideas' 
+      }, { status: 500 });
+    }
+    
+    console.log(`✅ Successfully fetched ${ideas?.length || 0} business ideas`);
+    
+    return NextResponse.json({ 
+      success: true, 
+      posts: ideas || [],
+      count: ideas?.length || 0
+    });
+    
+  } catch (error) {
+    console.error('💥 Unexpected error in GET:', error);
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Internal server error' 
     }, { status: 500 });
   }
 }

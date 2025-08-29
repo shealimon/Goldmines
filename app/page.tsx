@@ -23,20 +23,20 @@ export default function Home() {
         <nav className="flex items-center justify-between px-6 lg:px-8 py-8 relative z-10">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-black text-lg">G</span>
+              <span className="text-white font-normal text-lg">G</span>
             </div>
-            <span className="text-2xl font-black text-white">goldmines</span>
+            <span className="text-2xl font-normal text-white">goldmines</span>
           </div>
           
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-8">
-            <a href="#product" className="text-white hover:text-emerald-400 transition-colors font-bold text-lg cursor-pointer">Product</a>
-            <a href="#pricing" className="text-white hover:text-emerald-400 transition-colors font-bold text-lg cursor-pointer">Pricing</a>
-            <a href="#about" className="text-white hover:text-emerald-400 transition-colors font-bold text-lg cursor-pointer">About</a>
-            <Link href="/login" className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-full hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 font-semibold shadow-lg shadow-cyan-500/25">
+            <a href="#product" className="text-white hover:text-emerald-400 transition-colors font-normal text-lg cursor-pointer">Product</a>
+            <a href="#pricing" className="text-white hover:text-emerald-400 transition-colors font-normal text-lg cursor-pointer">Pricing</a>
+            <a href="#about" className="text-white hover:text-emerald-400 transition-colors font-normal text-lg cursor-pointer">About</a>
+            <Link href="/login" className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-full hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 font-normal shadow-lg shadow-cyan-500/25">
               Login
             </Link>
-            <Link href="/signup" className="px-8 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full hover:from-purple-600 hover:to-purple-700 transition-all duration-200 font-semibold shadow-lg shadow-purple-500/25">
+            <Link href="/signup" className="px-8 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full hover:from-purple-600 hover:to-purple-700 transition-all duration-200 font-normal shadow-lg shadow-purple-500/25">
               Signup
             </Link>
           </div>
@@ -58,9 +58,9 @@ export default function Home() {
               <div className="flex items-center justify-between px-6 py-8 border-b border-white/20">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-black text-lg">G</span>
+                    <span className="text-white font-normal text-lg">G</span>
                   </div>
-                  <span className="text-2xl font-black text-white">goldmines</span>
+                  <span className="text-2xl font-normal text-white">goldmines</span>
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
@@ -74,21 +74,21 @@ export default function Home() {
               <div className="flex-1 px-6 py-8 space-y-6">
                 <a 
                   href="#product" 
-                  className="block text-white hover:text-emerald-400 transition-colors font-bold text-xl py-4 border-b border-white/10"
+                  className="block text-white hover:text-emerald-400 transition-colors font-normal text-xl py-4 border-b border-white/10"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Product
                 </a>
                 <a 
                   href="#pricing" 
-                  className="block text-white hover:text-emerald-400 transition-colors font-bold text-xl py-4 border-b border-white/10"
+                  className="block text-white hover:text-emerald-400 transition-colors font-normal text-xl py-4 border-b border-white/10"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Pricing
                 </a>
                 <a 
                   href="#about" 
-                  className="block text-white hover:text-emerald-400 transition-colors font-bold text-xl py-4 border-b border-white/10"
+                  className="block text-white hover:text-emerald-400 transition-colors font-normal text-xl py-4 border-b border-white/10"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   About
@@ -118,22 +118,22 @@ export default function Home() {
         
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="text-center">
-            <h1 className="text-6xl lg:text-7xl font-extrabold text-white mb-12 leading-tight mt-16">
+            <h1 className="text-4xl lg:text-5xl font-medium text-white mb-8 leading-tight mt-16">
               Discover Your Next
               <br />
-              <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent font-black">
+              <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent font-normal">
                 Million-Dollar
               </span>
               <br />
               Business Ideas
             </h1>
             
-            <p className="text-lg text-gray-300 mb-16 leading-relaxed max-w-3xl mx-auto font-light tracking-wide">
+            <p className="text-base text-gray-300 mb-12 leading-relaxed max-w-3xl mx-auto font-normal tracking-wide">
               Transform Reddit discussions into validated business opportunities with AI that understands market signals before anyone else.
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-6 sm:space-y-0 sm:space-x-6">
-              <Link href="/signup" className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full hover:from-purple-600 hover:to-pink-600 transition-all duration-300 font-bold text-lg shadow-lg shadow-purple-500/25 transform hover:scale-105">
+              <Link href="/signup" className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full hover:from-purple-600 hover:to-pink-600 transition-all duration-300 font-medium text-base shadow-lg shadow-purple-500/25 transform hover:scale-105">
                 Start Free Trial
               </Link>
             </div>
