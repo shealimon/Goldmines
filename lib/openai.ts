@@ -31,6 +31,18 @@ export interface AnalyzedPost extends RedditPost {
   full_analysis: string;
 }
 
+export interface MarketingIdeaPost extends RedditPost {
+  analysis_status: 'completed' | 'failed';
+  marketing_idea_name: string;
+  idea_description: string;
+  channel: string[];
+  target_audience: string[];
+  potential_impact: 'High' | 'Medium' | 'Low';
+  implementation_tips: string[];
+  success_metrics: string[];
+  full_analysis: string;
+}
+
 export const openaiService = {
   // Pre-filter function to check if post contains business idea
   async preFilterBusinessIdea(text: string): Promise<boolean> {
@@ -61,6 +73,39 @@ export const openaiService = {
       return response.includes('yes');
     } catch (error) {
       console.error('Pre-filter error:', error);
+      return true; // Default to true if filter fails
+    }
+  },
+
+  // Pre-filter function to check if post contains marketing idea
+  async preFilterMarketingIdea(text: string): Promise<boolean> {
+    // Skip API calls during build if no valid API key
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
+      console.log('Skipping OpenAI API call during build - no valid API key');
+      return true; // Default to true during build
+    }
+    
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        max_tokens: 50, // Very cheap pre-filter
+        messages: [
+          {
+            role: "system",
+            content: "You are a marketing idea classifier. Given a Reddit post, determine if it contains a potential marketing tactic, strategy, or idea. Look for keywords like 'growth hack', 'marketing strategy', 'campaign', 'ad idea', 'social media growth', 'email open rate', 'customer acquisition', 'SEO trick', 'viral marketing', 'branding idea'. Respond with ONLY 'Yes' or 'No'."
+          },
+          {
+            role: "user",
+            content: text.substring(0, 200) // Limit text for cost efficiency
+          }
+        ]
+      });
+
+      const response = completion.choices[0]?.message?.content?.trim().toLowerCase() || '';
+      return response.includes('yes');
+    } catch (error) {
+      console.error('Marketing pre-filter error:', error);
       return true; // Default to true if filter fails
     }
   },
@@ -401,6 +446,177 @@ Rules:
 
     } catch (error) {
       console.error('Error analyzing post with OpenAI:', error);
+      throw error;
+    }
+  },
+
+  // Analyze Reddit post for marketing ideas
+  async analyzeMarketingPost(post: RedditPost): Promise<MarketingIdeaPost> {
+    // Skip API calls during build if no valid API key
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
+      console.log('Skipping OpenAI analysis during build - no valid API key');
+      return {
+        ...post,
+        analysis_status: 'failed',
+        marketing_idea_name: post.title,
+        idea_description: 'Build mode - no analysis available',
+        channel: ['Build mode'],
+        target_audience: ['Build mode - no analysis available'],
+        potential_impact: 'Medium',
+        implementation_tips: ['Build mode - no analysis available'],
+        success_metrics: ['Build mode - no analysis available'],
+        full_analysis: 'Build mode - OpenAI analysis not available'
+      };
+    }
+    
+    try {
+      console.log('Analyzing Reddit post for marketing ideas with OpenAI...');
+      
+      const prompt = `Analyze this Reddit post and extract a marketing idea, tactic, or strategy. Focus on actionable marketing insights.
+
+Text:
+Title: ${post.title}
+Content: ${post.content}
+Subreddit: r/${post.subreddit}
+
+Please provide a structured analysis in this exact format:
+
+Marketing Idea: [Clear, one-line title of the tactic]
+
+Idea Description: [Short explanation of how it works - 2-3 sentences]
+
+Channel: [List the marketing channels this applies to - e.g., SEO, Social Media, Ads, Email, Influencer, Offline, Content Marketing, etc.]
+
+Target Audience: [Who this idea helps - e.g., startups, small businesses, SaaS, ecommerce, B2B, B2C, etc.]
+
+Potential Impact: [Choose one: High, Medium, or Low - based on the potential effectiveness and scalability]
+
+Implementation Tips: [3-5 actionable tips for implementing this marketing idea]
+
+Success Metrics: [3-5 metrics to measure the success of this marketing tactic]
+
+Focus on practical, implementable marketing strategies that businesses can actually use.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.2,
+        max_tokens: 800,
+        messages: [
+          {
+            role: "system",
+            content: "You are a marketing expert specializing in growth hacking, digital marketing, and business growth strategies. You analyze Reddit posts to extract actionable marketing insights and tactics."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      });
+
+      const responseText = completion.choices[0]?.message?.content || '';
+      console.log('OpenAI response received:', responseText);
+
+      // Parse the structured response
+      const parseMarketingResponse = (text: string) => {
+        const extractSection = (text: string, sectionName: string): string[] => {
+          const regex = new RegExp(`${sectionName}:\\s*([\\s\\S]*?)(?=\\n\\n|$)`, 'i');
+          const match = text.match(regex);
+          if (match) {
+            return match[1]
+              .split('\n')
+              .map(line => line.trim())
+              .filter(line => line.startsWith('-') || line.startsWith('•') || line.startsWith('*'))
+              .map(line => line.replace(/^[-•*]\s*/, '').trim())
+              .filter(line => line.length > 0);
+          }
+          return [];
+        };
+
+        const extractSingleLine = (text: string, sectionName: string): string => {
+          const regex = new RegExp(`${sectionName}:\\s*([^\\n]+)`, 'i');
+          const match = text.match(regex);
+          return match ? match[1].trim() : '';
+        };
+
+        const extractPotentialImpact = (text: string): 'High' | 'Medium' | 'Low' => {
+          const impactText = extractSingleLine(text, 'Potential Impact').toLowerCase();
+          if (impactText.includes('high')) return 'High';
+          if (impactText.includes('low')) return 'Low';
+          return 'Medium'; // Default
+        };
+
+        const parsed = {
+          marketing_idea_name: extractSingleLine(text, 'Marketing Idea'),
+          idea_description: extractSingleLine(text, 'Idea Description'),
+          channel: extractSection(text, 'Channel'),
+          target_audience: extractSection(text, 'Target Audience'),
+          potential_impact: extractPotentialImpact(text),
+          implementation_tips: extractSection(text, 'Implementation Tips'),
+          success_metrics: extractSection(text, 'Success Metrics')
+        };
+
+        // Fallback for missing fields
+        if (!parsed.marketing_idea_name || parsed.marketing_idea_name.length < 5) {
+          parsed.marketing_idea_name = post.title;
+        }
+        
+        if (!parsed.idea_description || parsed.idea_description.length < 10) {
+          parsed.idea_description = 'Marketing strategy extracted from Reddit post';
+        }
+
+        if (!parsed.channel || parsed.channel.length === 0) {
+          parsed.channel = ['General Marketing'];
+        }
+
+        if (!parsed.target_audience || parsed.target_audience.length === 0) {
+          parsed.target_audience = ['Businesses'];
+        }
+
+        if (!parsed.implementation_tips || parsed.implementation_tips.length === 0) {
+          parsed.implementation_tips = ['Implement based on your business context'];
+        }
+
+        if (!parsed.success_metrics || parsed.success_metrics.length === 0) {
+          parsed.success_metrics = ['Track relevant KPIs for your business'];
+        }
+
+        return parsed;
+      };
+
+      let analysis;
+      try {
+        analysis = parseMarketingResponse(responseText);
+      } catch (parseError) {
+        console.log('Failed to parse marketing response, using fallback analysis');
+        analysis = {
+          marketing_idea_name: post.title,
+          idea_description: 'Marketing strategy identified',
+          channel: ['General Marketing'],
+          target_audience: ['Businesses'],
+          potential_impact: 'Medium' as const,
+          implementation_tips: ['Implement based on your business context'],
+          success_metrics: ['Track relevant KPIs for your business']
+        };
+      }
+
+      const analyzedPost: MarketingIdeaPost = {
+        ...post,
+        analysis_status: 'completed',
+        marketing_idea_name: analysis.marketing_idea_name,
+        idea_description: analysis.idea_description,
+        channel: analysis.channel,
+        target_audience: analysis.target_audience,
+        potential_impact: analysis.potential_impact,
+        implementation_tips: analysis.implementation_tips,
+        success_metrics: analysis.success_metrics,
+        full_analysis: responseText
+      };
+
+      console.log('Marketing post analysis completed successfully');
+      return analyzedPost;
+
+    } catch (error) {
+      console.error('Error analyzing marketing post with OpenAI:', error);
       throw error;
     }
   }

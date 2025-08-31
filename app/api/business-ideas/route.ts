@@ -166,6 +166,13 @@ const levenshteinDistance = (str1: string, str2: string): number => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    
+    // Check if this is a bulk fetch and analyze action
+    if (body.action === 'fetch_and_analyze') {
+      return await handleBulkFetchAndAnalyze();
+    }
+    
+    // Original logic for single Reddit post analysis
     const { reddit_post } = body;
 
     if (!reddit_post) {
@@ -266,6 +273,133 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error processing business idea:', error);
     return NextResponse.json(
       { success: false, message: 'Error processing business idea', error: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// New function to handle bulk fetch and analyze
+async function handleBulkFetchAndAnalyze() {
+  try {
+    console.log('🚀 Starting bulk fetch and analyze process...');
+    
+    // Fetch posts from Reddit subreddits
+    const posts = await redditAPI.fetchAllSubreddits(100, ['entrepreneur', 'indiehackers', 'startups', 'saas']);
+    console.log(`✅ Fetched ${posts.length} posts from Reddit`);
+    
+    if (posts.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'No posts fetched from Reddit. Please try again.'
+      }, { status: 400 });
+    }
+    
+    // Filter for business idea posts
+    const businessPosts = redditAPI.filterBusinessIdeaPosts(posts);
+    console.log(`✅ Filtered to ${businessPosts.length} business idea posts`);
+    
+    if (businessPosts.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'No business idea posts found. Please try again.'
+      }, { status: 400 });
+    }
+    
+    // Analyze posts with OpenAI and save to database in batches for faster processing
+    const postsToAnalyze = businessPosts; // Process all business posts
+    let analyzedCount = 0;
+    let skippedCount = 0;
+    
+    // Process posts in batches of 5 for faster processing
+    const batchSize = 5;
+    for (let i = 0; i < postsToAnalyze.length; i += batchSize) {
+      const batch = postsToAnalyze.slice(i, i + batchSize);
+      console.log(`🚀 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(postsToAnalyze.length / batchSize)} (${batch.length} posts)`);
+      
+      // Process batch in parallel for speed
+      const batchPromises = batch.map(async (post) => {
+        try {
+          console.log(`🧠 Analyzing post: ${post.title.substring(0, 50)}...`);
+          
+          // Check for duplicates before analyzing
+          const duplicateCheck = await detectDuplicatePost(post, supabase);
+          if (duplicateCheck.isDuplicate) {
+            console.log(`⚠️ Skipping duplicate post: ${duplicateCheck.reason}`);
+            skippedCount++;
+            return null;
+          }
+          
+          // Analyze with OpenAI
+          const analyzedPost = await openaiService.analyzeRedditPost(post);
+          
+          // Save to database
+          const businessIdeaData = {
+            reddit_post_id: post.id,
+            reddit_title: post.title,
+            reddit_content: post.content || '',
+            reddit_author: post.author,
+            reddit_subreddit: post.subreddit,
+            reddit_score: post.score || 0,
+            reddit_comments: post.num_comments || 0,
+            reddit_url: post.url,
+            reddit_permalink: post.permalink,
+            reddit_created_utc: post.created_utc,
+
+            business_idea_name: analyzedPost.business_idea_name,
+            opportunity_points: analyzedPost.opportunity_points,
+            problems_solved: analyzedPost.problems_solved,
+            target_customers: analyzedPost.target_customers,
+            market_size: analyzedPost.market_size,
+            niche: analyzedPost.niche,
+            category: analyzedPost.category,
+            marketing_strategy: analyzedPost.marketing_strategy,
+            analysis_status: 'completed',
+            full_analysis: analyzedPost.full_analysis
+          };
+
+          const { error } = await supabase
+            .from('business_ideas')
+            .insert(businessIdeaData);
+
+          if (!error) {
+            analyzedCount++;
+            console.log(`✅ Successfully analyzed and saved post ${analyzedCount}/${postsToAnalyze.length}`);
+            return true;
+          } else {
+            console.error(`❌ Error saving post:`, error);
+            return false;
+          }
+          
+        } catch (error) {
+          console.error(`❌ Error analyzing post:`, error);
+          return false;
+        }
+      });
+      
+      // Wait for batch to complete
+      await Promise.all(batchPromises);
+      
+      // Small delay between batches to prevent overwhelming the APIs
+      if (i + batchSize < postsToAnalyze.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+    
+    console.log(`🎯 Completed analysis: ${analyzedCount} posts saved, ${skippedCount} duplicates skipped`);
+    
+    return NextResponse.json({
+      success: true,
+      message: `Successfully analyzed and saved ${analyzedCount} new business ideas`,
+      count: analyzedCount,
+      skipped: skippedCount,
+      total_fetched: posts.length,
+      business_posts: businessPosts.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in bulk fetch and analyze:', error);
+    return NextResponse.json(
+      { success: false, message: 'Error in bulk fetch and analyze process', error: String(error) },
       { status: 500 }
     );
   }

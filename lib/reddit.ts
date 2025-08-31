@@ -30,6 +30,78 @@ export const redditAPI = {
     };
   },
 
+  // New function: Get posts from a single subreddit
+  async getPosts(subreddit: string, limit: number = 20): Promise<RedditPost[]> {
+    try {
+      console.log(`📥 Fetching posts from r/${subreddit} with limit ${limit}...`);
+      
+      const urls = this.getRedditUrls(subreddit, limit);
+      const allPosts: RedditPost[] = [];
+      
+      // Fetch from top posts (most popular)
+      const topUrl = urls.top;
+      console.log(`🔗 Fetching from: ${topUrl}`);
+      
+      const response = await fetch(topUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        console.log(`⚠️ Failed to fetch from r/${subreddit}: ${response.status} ${response.statusText}`);
+        return [];
+      }
+      
+      const data = await response.json();
+      const posts = data.data?.children || [];
+      
+      console.log(`✅ Fetched ${posts.length} posts from r/${subreddit}`);
+      
+      // Process posts up to the specified limit
+      let processedCount = 0;
+      
+      for (const post of posts) {
+        if (processedCount >= limit) break;
+        
+        const postData = post.data;
+        
+        // Skip posts with no content
+        if (!postData.title || postData.title.trim().length < 10) {
+          continue;
+        }
+        
+        // Create RedditPost object
+        const redditPost: RedditPost = {
+          id: postData.id,
+          title: postData.title,
+          content: postData.selftext || '',
+          subreddit: postData.subreddit,
+          score: postData.score || 0,
+          url: postData.url,
+          created_utc: postData.created_utc,
+          author: postData.author,
+          num_comments: postData.num_comments || 0,
+          permalink: postData.permalink
+        };
+        
+        allPosts.push(redditPost);
+        processedCount++;
+      }
+      
+      console.log(`✅ Processed ${allPosts.length} posts from r/${subreddit}`);
+      return allPosts;
+      
+    } catch (error) {
+      console.error(`❌ Error fetching posts from r/${subreddit}:`, error);
+      return [];
+    }
+  },
+
   // Generate content hash exactly like Python
   generateContentHash(title: string, content: string): string {
     const cleanTitle = title.replace(/[^\w\s]/g, '').toLowerCase().trim();

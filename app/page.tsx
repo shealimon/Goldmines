@@ -1,502 +1,752 @@
 'use client';
 
-import { ArrowRight, Brain, TrendingUp, Users, Zap, CheckCircle, Star, Menu, X } from "lucide-react";
-import Link from 'next/link';
+import { Inter } from 'next/font/google';
 import { useState } from 'react';
+import Link from 'next/link';
+import { ArrowRight, Sparkles, TrendingUp, Target, Users, Zap, CheckCircle, Star, Globe, FileText, Lightbulb, BarChart3 } from 'lucide-react';
 
-export default function Home() {
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '600', '700', '800', '900'],
+  variable: '--font-inter',
+});
+
+export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
+  
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <section className="px-6 lg:px-8 pt-0 pb-48 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-        {/* Background Elements */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-20 left-20 w-2 h-2 bg-emerald-400 rounded-full"></div>
-          <div className="absolute top-40 right-32 w-1 h-1 bg-cyan-400 rounded-full"></div>
-          <div className="absolute bottom-32 left-1/4 w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
-          <div className="absolute top-1/2 right-1/3 w-1 h-1 bg-emerald-300 rounded-full"></div>
-        </div>
-        
-        {/* Navigation inside hero */}
-        <nav className="flex items-center justify-between px-6 lg:px-8 py-8 relative z-10">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-normal text-lg">G</span>
-            </div>
-            <span className="text-2xl font-normal text-white">goldmines</span>
-          </div>
-          
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-8">
-            <a href="#product" className="text-white hover:text-emerald-400 transition-colors font-normal text-lg cursor-pointer">Product</a>
-            <a href="#pricing" className="text-white hover:text-emerald-400 transition-colors font-normal text-lg cursor-pointer">Pricing</a>
-            <a href="#about" className="text-white hover:text-emerald-400 transition-colors font-normal text-lg cursor-pointer">About</a>
-            <Link href="/login" className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-full hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 font-normal shadow-lg shadow-cyan-500/25">
-              Login
-            </Link>
-            <Link href="/signup" className="px-8 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full hover:from-purple-600 hover:to-purple-700 transition-all duration-200 font-normal shadow-lg shadow-purple-500/25">
-              Signup
-            </Link>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden text-white hover:text-emerald-400 transition-colors"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </nav>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden fixed top-0 left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md z-50">
-            <div className="flex flex-col h-full">
-              {/* Mobile Menu Header */}
-              <div className="flex items-center justify-between px-6 py-8 border-b border-white/20">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-normal text-lg">G</span>
-                  </div>
-                  <span className="text-2xl font-normal text-white">goldmines</span>
-                </div>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-white hover:text-emerald-400 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              {/* Mobile Menu Items */}
-              <div className="flex-1 px-6 py-8 space-y-6">
-                <a 
-                  href="#product" 
-                  className="block text-white hover:text-emerald-400 transition-colors font-normal text-xl py-4 border-b border-white/10"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Product
-                </a>
-                <a 
-                  href="#pricing" 
-                  className="block text-white hover:text-emerald-400 transition-colors font-normal text-xl py-4 border-b border-white/10"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Pricing
-                </a>
-                <a 
-                  href="#about" 
-                  className="block text-white hover:text-emerald-400 transition-colors font-normal text-xl py-4 border-b border-white/10"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  About
-                </a>
-                
-                {/* Mobile Menu Buttons */}
-                <div className="pt-8 space-y-4">
-                  <Link 
-                    href="/login" 
-                    className="block w-full text-center px-6 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-full hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 font-semibold shadow-lg shadow-cyan-500/25"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Login
-                  </Link>
-                  <Link 
-                    href="/signup" 
-                    className="block w-full text-center px-8 py-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full hover:from-purple-600 hover:to-purple-700 transition-all duration-200 font-semibold shadow-lg shadow-purple-500/25"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Signup
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center">
-            <h1 className="text-4xl lg:text-5xl font-medium text-white mb-8 leading-tight mt-16">
-              Discover Your Next
-              <br />
-              <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent font-normal">
-                Million-Dollar
+    <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-3">
+              <span className="text-xl font-bold">
+                <span className="text-purple-600">GOLD</span>
+                <span className="text-black">MINES</span>
               </span>
-              <br />
-              Business Ideas
-            </h1>
+            </div>
             
-            <p className="text-base text-gray-300 mb-12 leading-relaxed max-w-3xl mx-auto font-normal tracking-wide">
-              Transform Reddit discussions into validated business opportunities with AI that understands market signals before anyone else.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-6 sm:space-y-0 sm:space-x-6">
-              <Link href="/signup" className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full hover:from-purple-600 hover:to-pink-600 transition-all duration-300 font-medium text-base shadow-lg shadow-purple-500/25 transform hover:scale-105">
-                Start Free Trial
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
+              <Link href="#features" className="text-black hover:text-gray-700 transition-colors font-bold text-base flex items-center space-x-1">
+                <span>Product</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </Link>
+              <Link href="#pricing" className="text-black hover:text-gray-700 transition-colors font-bold text-base">
+                Pricing
+              </Link>
+              <Link href="/login" className="bg-white text-black px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200 font-bold text-base">
+                Log in
+              </Link>
+              <Link href="/signup" className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 font-bold text-base">
+                Signup
               </Link>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How Goldmines Works Section */}
-      <section id="how-it-works" className="px-6 lg:px-8 py-24 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">How Goldmines connects ideas to builders</h2>
+            
+            {/* Mobile Menu Button */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="text-gray-700 hover:text-gray-900 p-2"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
           </div>
           
-          <div className="space-y-20">
-            {/* Aggregate */}
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="text-sm font-semibold text-emerald-400 mb-2">AGGREGATE</div>
-                <h3 className="text-3xl font-bold text-white mb-4">Every signal, captured</h3>
-                <p className="text-gray-300 mb-6">
-                  Consolidate and analyze Reddit discussions across all communities - instantly identifying emerging problems and market gaps.
-                </p>
-                <div className="bg-white/10 backdrop-blur-sm border-l-4 border-emerald-400 p-4 rounded-r-lg">
-                  <p className="text-gray-200 italic">
-                    "Goldmines connected millions of Reddit posts immediately for our team to see what problems users were desperately trying to solve."
-                  </p>
-                  <p className="text-sm text-gray-400 mt-2">Sarah Chen, Founder at TechStartup</p>
-                </div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-md p-8 rounded-lg shadow-lg border border-white/20">
-                <div className="w-16 h-16 bg-emerald-500/20 rounded-lg flex items-center justify-center mb-4">
-                  <Zap className="w-8 h-8 text-emerald-400" />
-                </div>
-                <h4 className="font-semibold mb-2 text-white">AI-Powered Analysis</h4>
-                <p className="text-gray-300 text-sm">Advanced algorithms process thousands of posts to identify trending problems.</p>
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-gray-100 bg-white">
+              <div className="px-4 py-4 space-y-4">
+                <Link href="#features" className="block text-black hover:text-gray-700 transition-colors font-bold text-base py-2">
+                  Product
+                </Link>
+                <Link href="#pricing" className="block text-black hover:text-gray-700 transition-colors font-bold text-base py-2">
+                  Pricing
+                </Link>
+                <Link href="/login" className="block bg-white text-black px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200 font-bold text-base text-center">
+                  Log in
+                </Link>
+                <Link href="/signup" className="block bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 font-bold text-base text-center">
+                  Signup
+                </Link>
               </div>
             </div>
+          )}
+        </div>
+      </nav>
 
-            {/* Analyze */}
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="bg-white/10 backdrop-blur-md p-8 rounded-lg shadow-lg border border-white/20 order-2 md:order-1">
-                <div className="w-16 h-16 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-4">
-                  <TrendingUp className="w-8 h-8 text-cyan-400" />
+      {/* Hero Section */}
+      <section className="relative bg-white pt-56 pb-32 overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full opacity-20 blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full opacity-20 blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/4 w-32 h-32 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-full opacity-30 blur-2xl"></div>
+        </div>
+        <div className="max-w-6xl mx-auto px-6 text-center">
+                  {/* Headline */}
+        <h1 className="text-6xl md:text-7xl font-extrabold leading-tight text-gray-900">
+          Generate Business Ideas <br /> AI-Powered Intelligence
+        </h1>
+
+        {/* Subheadline */}
+        <p className="mt-6 text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
+          AI-powered business ideas, marketing strategies, and case studies designed 
+          to fuel your next big move. Stop guessing, start building smarter.
+        </p>
+
+          {/* CTA Buttons */}
+          <div className="mt-16 flex justify-center relative z-20">
+                      <Link
+                        href="/signup"
+                        className="px-6 py-3 text-base font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow hover:opacity-90 transition cursor-pointer"
+                        onClick={() => {
+                          console.log('Button clicked!');
+                          window.location.href = '/signup';
+                        }}
+                      >
+                        Start Free
+            </Link>
+                    </div>
+        </div>
+      </section>
+
+      {/* Dashboard Preview Section */}
+      <section className="pt-4 pb-8 lg:pt-6 lg:pb-12 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          {/* Preview Card */}
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
+            {/* App Header */}
+            <div className="bg-gray-50 px-8 py-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl font-bold">
+                    <span className="text-purple-600">GOLD</span>
+                    <span className="text-gray-900">MINES</span>
+                  </span>
                 </div>
-                <h4 className="font-semibold mb-2 text-white">Real-Time Market Intelligence</h4>
-                <p className="text-gray-300 text-sm">Instant insights into market demand and opportunity validation.</p>
-              </div>
-              <div className="order-1 md:order-2">
-                <div className="text-sm font-semibold text-cyan-400 mb-2">ANALYZE</div>
-                <h3 className="text-3xl font-bold text-white mb-4">Know, don't guess</h3>
-                <p className="text-gray-300 mb-6">
-                  Uncover key market insights at the speed of thought with AI that understands context and sentiment.
-                </p>
-                <div className="bg-white/10 backdrop-blur-sm border-l-4 border-cyan-400 p-4 rounded-r-lg">
-                  <p className="text-gray-200 italic">
-                    "Goldmines helps us have a holistic view. We can actually understand: What are the broader market sentiments? What problems are users facing?"
-                  </p>
-                  <p className="text-sm text-gray-400 mt-2">Alex Rodriguez, Product Manager</p>
+                <div className="flex items-center space-x-4">
+                  <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                  <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                  <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
                 </div>
               </div>
             </div>
-
-            {/* Act */}
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="text-sm font-semibold text-purple-400 mb-2">ACT</div>
-                <h3 className="text-3xl font-bold text-white mb-4">Build with confidence</h3>
-                <p className="text-gray-300 mb-6">
-                  Transform insights into validated business opportunities with data-driven confidence.
-                </p>
-                <div className="bg-white/10 backdrop-blur-sm border-l-4 border-purple-400 p-4 rounded-r-lg">
-                  <p className="text-gray-200 italic">
-                    "Goldmines helps us focus on the 20% of opportunities that cause 80% of the impact. No more needles in haystacks."
-                  </p>
-                  <p className="text-sm text-gray-400 mt-2">Maria Thompson, Entrepreneur</p>
+            
+            <div className="flex flex-col lg:flex-row">
+              {/* Left Sidebar */}
+              <div className="w-full lg:w-64 bg-gray-50 p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-gray-200">
+                <div className="space-y-4 lg:space-y-6">
+                  <div className="space-y-2 lg:space-y-3">
+                    <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
+                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <BarChart3 className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                      </div>
+                      <span className="text-xs lg:text-sm font-medium">Dashboard</span>
+                    </div>
+                    <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
+                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <Lightbulb className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                      </div>
+                      <span className="text-xs lg:text-sm font-medium">Business Ideas</span>
+                    </div>
+                    <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
+                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                      </div>
+                      <span className="text-xs lg:text-sm font-medium">Marketing Ideas</span>
+                    </div>
+                    <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
+                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <FileText className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                      </div>
+                      <span className="text-xs lg:text-sm font-medium">Case Studies</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="bg-white/10 backdrop-blur-md p-8 rounded-lg shadow-lg border border-white/20">
-                <div className="w-16 h-16 bg-purple-500/20 rounded-lg flex items-center justify-center mb-4">
-                  <Users className="w-8 h-8 text-purple-400" />
+              
+              {/* Main Content */}
+              <div className="flex-1 bg-white p-4 lg:p-8">
+                <div className="mb-6 lg:mb-8">
+                  <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-4 lg:mb-6">Recent Ideas</h1>
+                  
+                  {/* Search Bar */}
+                  <div className="mb-4 lg:mb-6">
+                    <div className="relative w-full max-w-md">
+                      <input 
+                        type="text" 
+                        placeholder="Search ideas..." 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 lg:px-4 py-2 lg:py-3 pl-10 lg:pl-12 text-sm lg:text-base text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200"
+                      />
+                      <div className="absolute left-3 lg:left-4 top-2.5 lg:top-3.5">
+                        <svg className="w-4 h-4 lg:w-5 lg:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <h4 className="font-semibold mb-2 text-white">Validated Opportunities</h4>
-                <p className="text-gray-300 text-sm">Turn community insights into profitable business ideas with proven demand.</p>
+                
+                {/* Sample Cards */}
+                <div className="grid gap-4 lg:gap-6">
+                  {/* Business Idea Card */}
+                  <div className="bg-gray-50 p-4 lg:p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 lg:mb-4 space-y-2 sm:space-y-0">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Lightbulb className="w-4 h-4 lg:w-6 lg:h-6 text-gray-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-base lg:text-lg font-semibold text-gray-900">On-demand tutoring platform</h3>
+                          <p className="text-xs lg:text-sm text-gray-700 font-medium">Business Idea</p>
+                        </div>
+                      </div>
+                      <span className="bg-gray-200 text-gray-700 text-xs px-2 lg:px-3 py-1 rounded-full font-medium self-start sm:self-auto">New</span>
+                    </div>
+                    <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
+                      Connect students with qualified tutors instantly through an AI-powered matching system. 
+                      Features include video calls, progress tracking, and flexible scheduling.
+                    </p>
+                  </div>
+                  
+                  {/* Marketing Strategy Card */}
+                  <div className="bg-gray-50 p-4 lg:p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 lg:mb-4 space-y-2 sm:space-y-0">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <TrendingUp className="w-4 h-4 lg:w-6 lg:h-6 text-gray-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-base lg:text-lg font-semibold text-gray-900">Viral TikTok campaign</h3>
+                          <p className="text-xs lg:text-sm text-gray-700 font-medium">Marketing Strategy</p>
+                        </div>
+                      </div>
+                      <span className="bg-gray-200 text-gray-700 text-xs px-2 lg:px-3 py-1 rounded-full font-medium self-start sm:self-auto">Trending</span>
+                    </div>
+                    <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
+                      Create engaging short-form content that leverages trending hashtags and challenges. 
+                      Focus on authentic storytelling and user-generated content to drive organic reach.
+                    </p>
+                  </div>
+                  
+                  {/* Case Study Card */}
+                  <div className="bg-gray-50 p-4 lg:p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 lg:mb-4 space-y-2 sm:space-y-0">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-4 h-4 lg:w-6 lg:h-6 text-gray-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-base lg:text-lg font-semibold text-gray-900">Airbnb's growth story</h3>
+                          <p className="text-xs lg:text-sm text-gray-700 font-medium">Case Study</p>
+                        </div>
+                      </div>
+                      <span className="bg-gray-200 text-gray-700 text-xs px-2 lg:px-3 py-1 rounded-full font-medium self-start sm:self-auto">Featured</span>
+                    </div>
+                    <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
+                      How Airbnb transformed the hospitality industry by leveraging the sharing economy, 
+                      building trust through reviews, and creating a global community of hosts and travelers.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Product Section */}
-      <section id="product" className="px-6 lg:px-8 py-24 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-        <div className="max-w-6xl mx-auto">
+
+
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-5xl font-black text-white mb-6">Features that scale with your vision</h2>
-            <p className="text-xl text-gray-300 mb-16 max-w-3xl mx-auto">Everything you need to discover, validate, and act on market opportunities.</p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">How Goldmines Works</h2>
+            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-2xl mx-auto">
+              Our AI analyzes thousands of Reddit discussions to identify trending business opportunities in just 3 simple steps.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-12">
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-200">
+                <TrendingUp className="w-10 h-10 text-blue-600" />
+              </div>
+              <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 mb-4">1. AI Scans Reddit</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Our AI continuously monitors Reddit communities, identifying posts with high engagement and unmet needs.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-200">
+                <Target className="w-10 h-10 text-purple-600" />
+              </div>
+              <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 mb-4">2. Validates Opportunities</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Each opportunity is analyzed for market size, competition, and feasibility to ensure high success potential.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-gradient-to-r from-green-100 to-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-200">
+                <Zap className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 mb-4">3. Delivers Insights</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Get detailed reports with market analysis, competitor research, and actionable next steps for your business.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section id="features" className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-6">Powerful Features</h2>
+            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-2xl mx-auto">
+              Everything you need to identify, validate, and launch your next successful business idea.
+            </p>
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:shadow-lg transition-all duration-300">
-              <h3 className="text-xl font-bold text-white mb-4">Source of truth</h3>
-              <p className="text-gray-300">
-                Unify all Reddit discussions in minutes to get the most comprehensive view of market opportunities and problems.
+            <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-200 border border-gray-100">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-purple-100 rounded-xl flex items-center justify-center mb-6">
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Market Intelligence</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Real-time market analysis with competitor research, pricing insights, and growth projections.
               </p>
             </div>
             
-            <div className="p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:shadow-lg transition-all duration-300">
-              <h3 className="text-xl font-bold text-white mb-4">Custom opportunity taxonomy</h3>
-              <p className="text-gray-300">
-                Give structure to unstructured discussions - customized for your industry. Taxonomy adapts to market changes over time.
+            <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-200 border border-gray-100">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center mb-6">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Community Insights</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Deep dive into Reddit communities to understand user pain points and unmet needs.
               </p>
             </div>
             
-            <div className="p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:shadow-lg transition-all duration-300">
-              <h3 className="text-xl font-bold text-white mb-4">Co-pilot for market insights</h3>
-              <p className="text-gray-300">
-                Get instant insights through an intuitive chat interface. Ask any question and get answers without complexity.
+            <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-200 border border-gray-100">
+              <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-blue-100 rounded-xl flex items-center justify-center mb-6">
+                <Lightbulb className="w-6 h-6 text-green-600" />
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Idea Generator</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                AI-powered idea generation based on trending topics and market gaps.
               </p>
             </div>
             
-            <div className="p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:shadow-lg transition-all duration-300">
-              <h3 className="text-xl font-bold text-white mb-4">User-friendly analytics</h3>
-              <p className="text-gray-300">
-                Get powerful insights with easy dashboards, automated summaries, and alerts - no technical expertise required.
+            <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-200 border border-gray-100">
+              <div className="w-12 h-12 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl flex items-center justify-center mb-6">
+                <FileText className="w-6 h-6 text-yellow-600" />
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Detailed Reports</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Comprehensive business plans with market analysis, financial projections, and launch strategies.
               </p>
             </div>
             
-            <div className="p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:shadow-lg transition-all duration-300">
-              <h3 className="text-xl font-bold text-white mb-4">Dedicated support</h3>
-              <p className="text-gray-300">
-                From implementation onwards, get dedicated analysts for weekly model updates, plus a CSM partner.
+            <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-200 border border-gray-100">
+              <div className="w-12 h-12 bg-gradient-to-r from-red-100 to-pink-100 rounded-xl flex items-center justify-center mb-6">
+                <Globe className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Global Coverage</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Monitor markets worldwide to discover opportunities in emerging economies and untapped regions.
               </p>
             </div>
             
-            <div className="p-8 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 hover:shadow-lg transition-all duration-300">
-              <h3 className="text-xl font-bold text-white mb-4">Unlimited team access</h3>
-              <p className="text-gray-300">
-                Bring your entire team into Goldmines without prohibitive costs and foster a culture of opportunity-driven strategy.
+            <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-200 border border-gray-100">
+              <div className="w-12 h-12 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center mb-6">
+                <Star className="w-6 h-6 text-indigo-600" />
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Success Stories</h3>
+              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+                Learn from entrepreneurs who've successfully launched businesses using our platform.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="px-6 lg:px-8 py-24 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-5xl font-black text-white mb-6">Simple pricing, no surprises</h2>
-          <p className="text-xl text-gray-300 mb-16">
-            Start free and scale as you grow. No hidden fees, no surprises.
-          </p>
+      {/* Demo/Preview Cards */}
+      <section id="demo" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-6">See Goldmines in Action</h2>
+            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-2xl mx-auto">
+              Explore real examples of business opportunities discovered by our AI platform.
+            </p>
+          </div>
           
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20 hover:shadow-lg transition-all duration-300">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-2">Free</h3>
-                <div className="text-5xl font-black text-white mb-2">
-                  $0
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-2xl border border-blue-100">
+              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-6">
+                <Lightbulb className="w-6 h-6 text-white" />
                 </div>
-                <p className="text-gray-300">7-day trial</p>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Business Idea</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed font-extrabold tracking-tight">
+                AI-powered meal planning app for busy professionals with dietary restrictions.
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-600 font-medium">Market Size: $2.1B</span>
+                <span className="text-gray-500">Trending ↑</span>
               </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0" />
-                  <span className="text-gray-200">5 business idea generations</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0" />
-                  <span className="text-gray-200">Basic market analysis</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0" />
-                  <span className="text-gray-200">Community access</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-emerald-400 mr-3 flex-shrink-0" />
-                  <span className="text-gray-200">Email support</span>
-                </li>
-              </ul>
-              <button className="w-full py-4 px-6 bg-white/20 text-white rounded-full hover:bg-white/30 transition-all duration-200 font-bold border border-white/30">
-                Start Free Trial
-              </button>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-3xl p-8 relative hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-8 rounded-2xl border border-purple-100">
+              <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mb-6">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Marketing Idea</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed font-extrabold tracking-tight">
+                TikTok marketing agency specializing in viral content for local businesses.
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-purple-600 font-medium">Demand: High</span>
+                <span className="text-gray-500">Growing ↑</span>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-blue-50 p-8 rounded-2xl border border-green-100">
+              <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mb-6">
+                <BarChart3 className="w-6 h-6 text-white" />
+                </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Case Study</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed font-extrabold tracking-tight">
+                How a fitness app reached 100K users in 6 months using Reddit insights.
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-green-600 font-medium">Revenue: $50K MRR</span>
+                <span className="text-gray-500">Success ✓</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-6">Pricing & Plans</h2>
+            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-3xl mx-auto">
+              Choose the perfect plan to start generating winning business ideas and strategies.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Free Plan */}
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Free</h3>
+                <div className="mb-4">
+                  <span className="text-4xl font-bold text-gray-900">$0</span>
+                </div>
+                <p className="text-gray-600 text-sm">Perfect for getting started</p>
+              </div>
+              
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">20 business ideas/day</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">10 marketing strategies/day</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">1 case study/day</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Basic access</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Community support</span>
+                </div>
+              </div>
+              
+              <button className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-200 transition-colors">
+                Get Started Free
+              </button>
+            </div>
+            
+            {/* Pro Plan - Most Popular */}
+            <div className="bg-white rounded-3xl shadow-xl border-2 border-purple-200 p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 relative">
+              {/* Popular Badge */}
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-white text-emerald-600 px-4 py-2 rounded-full text-sm font-bold">Most Popular</span>
+                <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  Most Popular
+                </span>
               </div>
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
-                <div className="text-5xl font-black text-white mb-2">
-                  $19
+              
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
+                <div className="mb-4">
+                  <span className="text-4xl font-bold text-gray-900">$20</span>
+                  <span className="text-gray-600 ml-2">per user/month</span>
                 </div>
-                <p className="text-emerald-100">per month / billed yearly</p>
+                <p className="text-gray-600 text-sm">Billed yearly</p>
               </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">Unlimited idea generations</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">Advanced market analysis</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">Priority support</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">Export reports</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">API access</span>
-                </li>
-              </ul>
-              <button className="w-full py-4 px-6 bg-white text-emerald-600 rounded-full hover:bg-gray-100 transition-all duration-200 font-bold shadow-lg">
-                Get Started
+              
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Everything in Free</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Unlimited ideas & case studies</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">AI-enhanced insights</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Save & organize ideas</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Priority support</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Export & download reports</span>
+                </div>
+              </div>
+              
+              <button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                Start Pro Plan
               </button>
             </div>
-
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-3xl p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-2">Ultimate</h3>
-                <div className="text-5xl font-black text-white mb-2">
-                  $299
+            
+            {/* Lifetime Plan */}
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-8 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Lifetime</h3>
+                <div className="mb-4">
+                  <span className="text-4xl font-bold text-gray-900">$349</span>
+                  <span className="text-gray-600 ml-2">one-time</span>
                 </div>
-                <p className="text-purple-100">one-time payment</p>
+                <p className="text-gray-600 text-sm">Best value for long-term</p>
               </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">Everything in Pro</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">Lifetime access</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">All future updates</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">VIP support</span>
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-white mr-3 flex-shrink-0" />
-                  <span className="text-white">Early access features</span>
-                </li>
-              </ul>
-              <button className="w-full py-4 px-6 bg-white text-purple-600 rounded-full hover:bg-gray-100 transition-all duration-200 font-bold shadow-lg">
-                Get Ultimate Access
+              
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">All yearly features</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Lifetime access</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Early feature access</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">VIP support</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">Custom integrations</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700">White-label options</span>
+                </div>
+              </div>
+              
+              <button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                Get Lifetime Access
               </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section id="about" className="px-6 lg:px-8 py-24 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-5xl font-black text-white mb-4">About Goldmines</h2>
-          <p className="text-xl text-gray-300 mb-8">
-            We're on a mission to democratize business intelligence by making market research accessible to everyone.
-          </p>
-          <div className="grid md:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Star className="w-8 h-8 text-emerald-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Our Mission</h3>
-              <p className="text-gray-300">
-                To help entrepreneurs discover and validate business opportunities through data-driven insights.
-              </p>
-            </div>
-            <div>
-              <div className="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="w-8 h-8 text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Our Approach</h3>
-              <p className="text-gray-300">
-                Combining AI technology with real-time community insights to deliver actionable business intelligence.
-              </p>
-            </div>
-            <div>
-              <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Our Community</h3>
-              <p className="text-gray-300">
-                A growing network of entrepreneurs, innovators, and business leaders sharing insights and opportunities.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white py-16 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-10 left-10 w-1 h-1 bg-emerald-400 rounded-full"></div>
-          <div className="absolute top-20 right-20 w-1.5 h-1.5 bg-cyan-400 rounded-full"></div>
-          <div className="absolute bottom-20 left-1/3 w-1 h-1 bg-purple-400 rounded-full"></div>
-          <div className="absolute top-1/3 right-1/4 w-1 h-1 bg-emerald-300 rounded-full"></div>
-        </div>
-        
-        <div className="max-w-6xl mx-auto px-6 relative z-10">
-          <div className="grid md:grid-cols-4 gap-12">
-            <div className="md:col-span-2">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-r from-emerald-400 to-cyan-500 rounded-2xl flex items-center justify-center">
-                  <span className="text-white font-black text-lg">G</span>
-                </div>
-                <span className="text-2xl font-black">Goldmines</span>
-              </div>
-              <p className="text-gray-300 text-lg leading-relaxed max-w-md mb-6">
-                Discover your next million-dollar business idea with AI-powered market intelligence that sees opportunities before your competition.
-              </p>
-              <div className="flex space-x-4">
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all duration-300">
-                  <span className="text-white font-bold">T</span>
-                </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all duration-300">
-                  <span className="text-white font-bold">L</span>
-                </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all duration-300">
-                  <span className="text-white font-bold">G</span>
-                </a>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-bold text-lg mb-6 text-emerald-400">Product</h4>
-              <ul className="space-y-3">
-                <li><a href="#product" className="text-gray-300 hover:text-emerald-400 transition-colors duration-300">Features</a></li>
-                <li><a href="#pricing" className="text-gray-300 hover:text-emerald-400 transition-colors duration-300">Pricing</a></li>
-                <li><a href="/demo" className="text-gray-300 hover:text-emerald-400 transition-colors duration-300">Demo</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-emerald-400 transition-colors duration-300">API</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-bold text-lg mb-6 text-cyan-400">Company</h4>
-              <ul className="space-y-3">
-                <li><a href="#about" className="text-gray-300 hover:text-cyan-400 transition-colors duration-300">About</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-cyan-400 transition-colors duration-300">Blog</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-cyan-400 transition-colors duration-300">Careers</a></li>
-                <li><a href="#" className="text-gray-300 hover:text-cyan-400 transition-colors duration-300">Press</a></li>
-              </ul>
             </div>
           </div>
           
-          <div className="border-t border-white/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm">
-              &copy; 2025 Goldmines. All rights reserved.
+          {/* Money-back Guarantee */}
+          <div className="text-center mt-12">
+            <p className="text-gray-600 text-sm">
+              <span className="font-semibold">14-Day Money-Back Guarantee</span> • Cancel anytime • No questions asked
             </p>
-            <div className="flex space-x-6 mt-4 md:mt-0">
-              <a href="#" className="text-gray-400 hover:text-emerald-400 transition-colors duration-300 text-sm">Privacy Policy</a>
-              <a href="#" className="text-gray-400 hover:text-emerald-400 transition-colors duration-300 text-sm">Terms of Service</a>
-              <a href="#" className="text-gray-400 hover:text-emerald-400 transition-colors duration-300 text-sm">Cookie Policy</a>
+          </div>
+        </div>
+      </section>
+
+
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <h2 className="text-6xl md:text-7xl font-extrabold tracking-tight text-white mb-6">Ready to Discover Your Next Business Idea?</h2>
+          <p className="text-lg md:text-xl font-extrabold tracking-tight text-blue-100 mb-8 leading-relaxed">
+            Join thousands of entrepreneurs who've already found their million-dollar ideas with Goldmines.
+          </p>
+          <Link href="/signup" className="bg-white text-blue-600 px-8 py-4 rounded-xl hover:shadow-xl transition-all duration-200 font-semibold text-lg inline-flex items-center space-x-2 group">
+            <span>Start Your Free Trial</span>
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </Link>
+        </div>
+      </section>
+
+
+
+      {/* Footer */}
+      <footer className="bg-white text-gray-900 py-12 lg:py-16 border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          {/* Mobile Layout */}
+          <div className="lg:hidden space-y-8">
+            {/* Brand/Logo */}
+            <div className="text-center">
+              <span className="text-4xl lg:text-6xl font-black tracking-tight">
+                <span className="text-purple-600">GOLD</span>
+                <span className="text-gray-900">MINES</span>
+              </span>
+            </div>
+            
+            {/* Navigation Links */}
+            <div className="flex flex-col items-center space-y-4">
+              <Link href="/about" className="text-lg text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                About
+              </Link>
+              <Link href="#features" className="text-lg text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                Features
+              </Link>
+              <Link href="#demo" className="text-lg text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                Works
+              </Link>
+              <Link href="/help" className="text-lg text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                Support
+              </Link>
+            </div>
+            
+            {/* Social Media Icons */}
+            <div className="flex items-center justify-center space-x-6">
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.665 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                </svg>
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.746-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24.009c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641.001 12.017.001z"/>
+                </svg>
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+              </Link>
+            </div>
+          </div>
+          
+          {/* Desktop Layout */}
+          <div className="hidden lg:flex items-center justify-between">
+            {/* Brand/Logo */}
+            <div className="flex items-center space-x-3">
+              <span className="text-6xl font-black tracking-tight">
+                <span className="text-purple-600">GOLD</span>
+                <span className="text-gray-900">MINES</span>
+              </span>
+            </div>
+            
+            {/* Navigation Links */}
+            <div className="flex items-center space-x-8">
+              <Link href="/about" className="text-xl text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                About
+              </Link>
+              <Link href="#features" className="text-xl text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                Features
+              </Link>
+              <Link href="#demo" className="text-xl text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                Works
+              </Link>
+              <Link href="/help" className="text-xl text-gray-600 hover:text-gray-900 transition-colors font-medium">
+                Support
+              </Link>
+            </div>
+            
+            {/* Social Media Icons */}
+            <div className="flex items-center space-x-6">
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.665 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                </svg>
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.746-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24.009c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641.001 12.017.001z"/>
+                </svg>
+              </Link>
+              <Link href="#" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+              </Link>
             </div>
           </div>
         </div>
