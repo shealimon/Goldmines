@@ -8,14 +8,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-neue-haas);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: #ffffff;
   color: #171717;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-neue-haas), Arial, Helvetica, sans-serif;
 }
 
 /* Blob Animation */
@@ -89,4 +89,40 @@ html {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+/* Neue Haas Display Font Utilities */
+.font-neue-thin {
+  font-family: var(--font-neue-haas);
+  font-weight: 100;
+}
+
+.font-neue-light {
+  font-family: var(--font-neue-haas);
+  font-weight: 300;
+}
+
+.font-neue-regular {
+  font-family: var(--font-neue-haas);
+  font-weight: 400;
+}
+
+.font-neue-medium {
+  font-family: var(--font-neue-haas);
+  font-weight: 500;
+}
+
+.font-neue-semibold {
+  font-family: var(--font-neue-haas);
+  font-weight: 600;
+}
+
+.font-neue-bold {
+  font-family: var(--font-neue-haas);
+  font-weight: 700;
+}
+
+.font-neue-black {
+  font-family: var(--font-neue-haas);
+  font-weight: 800;
 }

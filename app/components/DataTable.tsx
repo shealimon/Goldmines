@@ -8,7 +8,8 @@ import {
   Lightbulb, 
   Megaphone, 
   BookOpen,
-  ChevronDown
+  ChevronDown,
+  Target
 } from 'lucide-react';
 
 interface DataItem {
@@ -16,6 +17,7 @@ interface DataItem {
   title: string;
   niche: string;
   category: string;
+  market_size: string[];
   dateGenerated: string;
   isBookmarked: boolean;
   reddit_score?: number;
@@ -29,42 +31,82 @@ interface DataTableProps {
   onDelete: (id: number) => void;
 }
 
-const getNicheIcon = (niche: string) => {
-  const lowerNiche = niche.toLowerCase();
-  if (lowerNiche.includes('business') || lowerNiche.includes('startup') || lowerNiche.includes('saas')) {
-    return <Lightbulb className="w-4 h-4 text-yellow-600" />;
-  } else if (lowerNiche.includes('marketing') || lowerNiche.includes('advertising') || lowerNiche.includes('promotion')) {
-    return <Megaphone className="w-4 h-4 text-blue-600" />;
-  } else if (lowerNiche.includes('case study') || lowerNiche.includes('study') || lowerNiche.includes('analysis')) {
-    return <BookOpen className="w-4 h-4 text-green-600" />;
+const getCategoryIcon = (category: string) => {
+  const lowerCategory = category.toLowerCase();
+  if (lowerCategory.includes('saas') || lowerCategory.includes('software')) {
+    return <Lightbulb className="w-4 h-4 text-blue-600" />;
+  } else if (lowerCategory.includes('fintech') || lowerCategory.includes('finance')) {
+    return <Lightbulb className="w-4 h-4 text-green-600" />;
+  } else if (lowerCategory.includes('edtech') || lowerCategory.includes('education')) {
+    return <BookOpen className="w-4 h-4 text-purple-600" />;
+  } else if (lowerCategory.includes('healthtech') || lowerCategory.includes('health')) {
+    return <Lightbulb className="w-4 h-4 text-red-600" />;
+  } else if (lowerCategory.includes('productivity') || lowerCategory.includes('productivity')) {
+    return <Lightbulb className="w-4 h-4 text-orange-600" />;
   } else {
     return <Lightbulb className="w-4 h-4 text-gray-600" />;
   }
 };
 
-const getNicheColor = (niche: string) => {
-  const lowerNiche = niche.toLowerCase();
-  if (lowerNiche.includes('business') || lowerNiche.includes('startup') || lowerNiche.includes('saas')) {
-    return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-  } else if (lowerNiche.includes('marketing') || lowerNiche.includes('advertising') || lowerNiche.includes('promotion')) {
+const getCategoryColor = (category: string) => {
+  const lowerCategory = category.toLowerCase();
+  if (lowerCategory.includes('saas') || lowerCategory.includes('software')) {
     return 'bg-blue-50 text-blue-700 border-blue-200';
-  } else if (lowerNiche.includes('case study') || lowerNiche.includes('study') || lowerNiche.includes('analysis')) {
+  } else if (lowerCategory.includes('fintech') || lowerCategory.includes('finance')) {
     return 'bg-green-50 text-green-700 border-green-200';
+  } else if (lowerCategory.includes('edtech') || lowerCategory.includes('education')) {
+    return 'bg-purple-50 text-purple-700 border-purple-200';
+  } else if (lowerCategory.includes('healthtech') || lowerCategory.includes('health')) {
+    return 'bg-red-50 text-red-700 border-red-200';
+  } else if (lowerCategory.includes('productivity') || lowerCategory.includes('productivity')) {
+    return 'bg-orange-50 text-orange-700 border-orange-200';
+  } else {
+    return 'bg-gray-50 text-gray-700 border-gray-200';
+  }
+};
+
+const getMarketSizeIcon = (marketSize: string[] | string | null) => {
+  if (!marketSize) return <Target className="w-4 h-4 text-gray-600" />;
+  
+  const sizeString = Array.isArray(marketSize) ? marketSize[0] || '' : marketSize;
+  const size = sizeString.toLowerCase();
+  
+  if (size.includes('$1b') || size.includes('billion') || size.includes('large') || size.includes('massive')) {
+    return <Target className="w-4 h-4 text-green-600" />;
+  } else if (size.includes('$100m') || size.includes('million') || size.includes('medium')) {
+    return <Target className="w-4 h-4 text-yellow-600" />;
+  } else if (size.includes('$10m') || size.includes('small') || size.includes('niche')) {
+    return <Target className="w-4 h-4 text-blue-600" />;
+  } else {
+    return <Target className="w-4 h-4 text-gray-600" />;
+  }
+};
+
+const getMarketSizeColor = (marketSize: string[] | string | null) => {
+  if (!marketSize) return 'bg-gray-50 text-gray-700 border-gray-200';
+  
+  const sizeString = Array.isArray(marketSize) ? marketSize[0] || '' : marketSize;
+  const size = sizeString.toLowerCase();
+  
+  if (size.includes('$1b') || size.includes('billion') || size.includes('large') || size.includes('massive')) {
+    return 'bg-green-50 text-green-700 border-green-200';
+  } else if (size.includes('$100m') || size.includes('million') || size.includes('medium')) {
+    return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+  } else if (size.includes('$10m') || size.includes('small') || size.includes('niche')) {
+    return 'bg-blue-50 text-blue-700 border-blue-200';
   } else {
     return 'bg-gray-50 text-gray-700 border-gray-200';
   }
 };
 
 export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDelete }: DataTableProps) {
-  const [sortBy, setSortBy] = useState<'date' | 'popularity' | 'saved'>('popularity');
+  const [sortBy, setSortBy] = useState<'date' | 'saved'>('date');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const sortedData = [...data].sort((a, b) => {
     switch (sortBy) {
       case 'date':
         return new Date(b.dateGenerated).getTime() - new Date(a.dateGenerated).getTime();
-      case 'popularity':
-        return (b.reddit_score || 0) - (a.reddit_score || 0);
       case 'saved':
         return (b.isBookmarked ? 1 : 0) - (a.isBookmarked ? 1 : 0);
       default:
@@ -74,21 +116,8 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
     
-    // Check if it's today
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    }
-    
-    // Check if it's yesterday
-    if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    }
-    
-    // For older dates, show as DD/MM/YYYY format
+    // Always show as DD/MM/YYYY format
     return date.toLocaleDateString('en-GB', { 
       day: '2-digit', 
       month: '2-digit', 
@@ -108,7 +137,7 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
             onClick={() => setShowSortDropdown(!showSortDropdown)}
             className="flex items-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-600 font-medium transition-colors"
           >
-                         <span>Sort: {sortBy === 'date' ? 'Date (Newest)' : sortBy === 'popularity' ? 'Popularity' : 'Saved'}</span>
+                         <span>Sort: {sortBy === 'date' ? 'Date (Newest)' : 'Saved'}</span>
             <ChevronDown className="w-4 h-4" />
           </button>
           
@@ -125,17 +154,7 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
                 >
                   Date
                 </button>
-              <button
-                onClick={() => {
-                  setSortBy('popularity');
-                  setShowSortDropdown(false);
-                }}
-                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                  sortBy === 'popularity' ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
-                }`}
-              >
-                Popularity
-              </button>
+
               <button
                 onClick={() => {
                   setSortBy('saved');
@@ -161,13 +180,10 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
                  Ideas
                </th>
                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                 Niche
+                 Category
                </th>
                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                 Like
-               </th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                 Comments
+                 Market Size
                </th>
                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                  Date
@@ -191,35 +207,19 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
                  </td>
                  <td className="px-6 py-4 whitespace-nowrap">
                    <div className="flex items-center space-x-2">
-                     {getNicheIcon(item.niche)}
-                     <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getNicheColor(item.niche)}`}>
-                       {item.niche}
+                     {getCategoryIcon(item.category)}
+                     <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getCategoryColor(item.category)}`}>
+                       {item.category}
                      </span>
                    </div>
                  </td>
-                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                   {item.reddit_score ? (
-                     <div className="flex items-center space-x-1 text-green-600">
-                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                         <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                       </svg>
-                       <span>{item.reddit_score.toLocaleString()}</span>
-                     </div>
-                   ) : (
-                     <span className="text-gray-400">-</span>
-                   )}
-                 </td>
-                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                   {item.reddit_comments ? (
-                     <div className="flex items-center space-x-1 text-blue-600">
-                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                         <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                       </svg>
-                       <span>{item.reddit_comments.toLocaleString()}</span>
-                     </div>
-                   ) : (
-                     <span className="text-gray-400">-</span>
-                   )}
+                 <td className="px-6 py-4 whitespace-nowrap">
+                   <div className="flex items-center space-x-2">
+                     {getMarketSizeIcon(item.market_size)}
+                     <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getMarketSizeColor(item.market_size)}`}>
+                       {Array.isArray(item.market_size) ? (item.market_size[0] || 'Unknown') : (item.market_size || 'Unknown')}
+                     </span>
+                   </div>
                  </td>
                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                    {formatDate(item.dateGenerated)}
@@ -260,9 +260,15 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
                    {item.title}
                  </h3>
                  <div className="flex items-center space-x-2 mb-2">
-                   {getNicheIcon(item.niche)}
-                   <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getNicheColor(item.niche)}`}>
-                     {item.niche}
+                   {getCategoryIcon(item.category)}
+                   <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getCategoryColor(item.category)}`}>
+                     {item.category}
+                   </span>
+                 </div>
+                 <div className="flex items-center space-x-2 mb-2">
+                   {getMarketSizeIcon(item.market_size)}
+                   <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getMarketSizeColor(item.market_size)}`}>
+                     {Array.isArray(item.market_size) ? (item.market_size[0] || 'Unknown') : (item.market_size || 'Unknown')}
                    </span>
                  </div>
                </div>
@@ -283,24 +289,6 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
              </div>
              
              <div className="flex items-center justify-between text-xs text-gray-500">
-               <div className="flex items-center space-x-4">
-                 {item.reddit_score && (
-                   <div className="flex items-center space-x-1 text-green-600">
-                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                       <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                     </svg>
-                     <span>{item.reddit_score.toLocaleString()}</span>
-                   </div>
-                 )}
-                 {item.reddit_comments && (
-                   <div className="flex items-center space-x-1 text-blue-600">
-                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                       <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                     </svg>
-                     <span>{item.reddit_comments.toLocaleString()}</span>
-                   </div>
-                 )}
-               </div>
                <span className="text-gray-400">{formatDate(item.dateGenerated)}</span>
              </div>
            </div>

@@ -6,50 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-// Authentication Guard Component
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log('🔍 AuthGuard: Checking authentication...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ AuthGuard: Error checking session:', error);
-          setIsAuthenticated(false);
-        } else if (session?.user) {
-          console.log('✅ AuthGuard: User authenticated, redirecting to dashboard');
-          setIsAuthenticated(true);
-          router.push('/dashboard');
-        } else {
-          console.log('❌ AuthGuard: No session, showing signup form');
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('💥 AuthGuard: Exception during auth check:', error);
-        setIsAuthenticated(false);
-      }
-    };
-    
-    checkAuth();
-  }, [router]);
-
-  // Show nothing while checking authentication
-  if (isAuthenticated === null) {
-    return null;
-  }
-
-  // If authenticated, don't render children (will redirect)
-  if (isAuthenticated === true) {
-    return null;
-  }
-
-  // If not authenticated, show signup form
-  return <>{children}</>;
-}
 
 // Signup Form Component
 function SignupForm() {
@@ -63,6 +20,23 @@ function SignupForm() {
     password: '',
     display_name: '',
   });
+
+  // Simple auth check on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log('✅ User already authenticated, redirecting to dashboard');
+          router.push('/dashboard');
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +170,17 @@ function SignupForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow">
+        {/* Back to Home Link */}
+        <div className="flex justify-start">
+          <Link 
+            href="/" 
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">Back to Home</span>
+          </Link>
+        </div>
+        
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">Sign up</h2>
           <p className="text-sm text-gray-600">
@@ -307,9 +292,5 @@ function SignupForm() {
 
 // Main Signup Page Component
 export default function SignupPage() {
-  return (
-    <AuthGuard>
-      <SignupForm />
-    </AuthGuard>
-  );
+  return <SignupForm />;
 }

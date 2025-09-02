@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openaiService } from '@/lib/openai';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
     };
 
     // Analyze the business idea with OpenAI
-    const analyzedPost = await openaiService.analyzeRedditPost(mockRedditPost);
+         const analyzedPosts = await openaiService.batchAnalyzeRedditPosts([mockRedditPost]);
+     const analyzedPost = analyzedPosts[0];
     
     console.log('✅ OpenAI analysis completed:', analyzedPost.business_idea_name);
 
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     console.log('💾 Saving user-generated business idea to database...');
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('business_ideas')
       .insert(businessIdeaData)
       .select()

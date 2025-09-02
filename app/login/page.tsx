@@ -6,61 +6,77 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-// Authentication Guard Component
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log('🔍 AuthGuard: Checking authentication...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ AuthGuard: Error checking session:', error);
-          setIsAuthenticated(false);
-        } else if (session?.user) {
-          console.log('✅ AuthGuard: User authenticated, redirecting to dashboard');
-          setIsAuthenticated(true);
-          router.push('/dashboard');
-        } else {
-          console.log('❌ AuthGuard: No session, showing login form');
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('💥 AuthGuard: Exception during auth check:', error);
-        setIsAuthenticated(false);
-      }
-    };
-    
-    checkAuth();
-  }, [router]);
-
-  // Show nothing while checking authentication
-  if (isAuthenticated === null) {
-    return null;
-  }
-
-  // If authenticated, don't render children (will redirect)
-  if (isAuthenticated === true) {
-    return null;
-  }
-
-  // If not authenticated, show login form
-  return <>{children}</>;
-}
-
 // Login Form Component
 function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [isPageReady, setIsPageReady] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+
+  // Simple auth check on component mount with timeout
+  useEffect(() => {
+    let isMounted = true;
+    let fallbackTimeout: NodeJS.Timeout;
+    
+    const checkAuth = async () => {
+      try {
+        console.log('🔍 Checking authentication status...');
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth check timeout')), 3000)
+        );
+        
+        const authPromise = supabase.auth.getSession();
+        
+        const { data: { session }, error } = await Promise.race([authPromise, timeoutPromise]) as any;
+        
+        if (!isMounted) return;
+        
+        if (error) {
+          console.error('❌ Auth check error:', error);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('✅ User already authenticated, redirecting to dashboard');
+          router.push('/dashboard');
+        } else {
+          console.log('ℹ️ No active session found');
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        console.error('❌ Auth check failed:', error);
+        // Don't redirect on error, just log it
+      } finally {
+        if (isMounted) {
+          setIsPageReady(true);
+        }
+      }
+    };
+    
+    // Set a fallback timeout to show the form even if auth check fails
+    fallbackTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.log('⏰ Auth check timeout, showing login form');
+        setIsPageReady(true);
+      }
+    }, 2000);
+    
+    checkAuth();
+    
+    return () => {
+      isMounted = false;
+      if (fallbackTimeout) {
+        clearTimeout(fallbackTimeout);
+      }
+    };
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,15 +84,19 @@ function LoginForm() {
     setMessage('');
 
     try {
-      console.log('🔐 Attempting login...');
+      console.log('🔐 Attempting login with:', { email: formData.email });
+      console.log('🔐 Supabase client:', supabase);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
+      console.log('🔐 Login response:', { data, error });
+
       if (error) {
         console.error('❌ Login error:', error);
-        setMessage('Invalid email or password. Please check your credentials.');
+        setMessage(`Login failed: ${error.message}`);
       } else if (data.user) {
         console.log('✅ Login successful:', data.user);
         setMessage('Login successful! Redirecting...');
@@ -84,7 +104,10 @@ function LoginForm() {
         // Wait for auth state to update, then redirect
         setTimeout(() => {
           router.push('/dashboard');
-        }, 500);
+        }, 1000);
+      } else {
+        console.log('❌ No user data returned');
+        setMessage('Login failed: No user data returned');
       }
     } catch (error: unknown) {
       console.error('💥 Login exception:', error);
@@ -101,9 +124,34 @@ function LoginForm() {
     });
   };
 
+  // Show loading state while checking auth
+  if (!isPageReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow">
+        {/* Back to Home Link */}
+        <div className="flex justify-start">
+          <Link 
+            href="/" 
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">Back to Home</span>
+          </Link>
+        </div>
+        
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">Sign in</h2>
           <p className="text-sm text-gray-600">
@@ -199,9 +247,5 @@ function LoginForm() {
 
 // Main Login Page Component
 export default function LoginPage() {
-  return (
-    <AuthGuard>
-      <LoginForm />
-    </AuthGuard>
-  );
+  return <LoginForm />;
 }

@@ -209,14 +209,66 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('❌ Error signing out:', error);
-      } else {
-        console.log('✅ Signed out successfully');
+      console.log('🚪 Starting sign out process...');
+      
+      // Clear local state immediately
+      setUser(null);
+      setProfile(null);
+      
+      // Clear local storage immediately
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log('✅ Local storage cleared');
       }
+      
+      // Try to sign out from Supabase (with timeout)
+      try {
+        const signOutPromise = supabase.auth.signOut();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Sign out timeout')), 3000)
+        );
+        
+        const { error } = await Promise.race([signOutPromise, timeoutPromise]) as any;
+        
+        if (error) {
+          console.error('❌ Error signing out from Supabase:', error);
+        } else {
+          console.log('✅ Signed out successfully from Supabase');
+        }
+      } catch (signOutError) {
+        console.error('❌ Sign out timeout or error:', signOutError);
+        // Continue with redirect even if Supabase signout fails
+      }
+      
+      console.log('✅ Sign out process completed, redirecting...');
+      
+      // Force redirect to login page using multiple methods
+      if (typeof window !== 'undefined') {
+        // Try multiple redirect methods
+        try {
+          window.location.href = '/login';
+        } catch (e) {
+          try {
+            window.location.replace('/login');
+          } catch (e2) {
+            // Last resort: reload the page to login
+            window.location.reload();
+          }
+        }
+      }
+      
     } catch (error) {
       console.error('🔥 Exception signing out:', error);
+      
+      // Force redirect even on error
+      if (typeof window !== 'undefined') {
+        try {
+          window.location.href = '/login';
+        } catch (e) {
+          window.location.reload();
+        }
+      }
     }
   };
 

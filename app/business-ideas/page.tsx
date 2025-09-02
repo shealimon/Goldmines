@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft,
@@ -18,8 +18,10 @@ import {
   Star,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
 
 interface BusinessIdea {
   id: string;
@@ -33,7 +35,7 @@ interface BusinessIdea {
   opportunity_points: string[] | null;
   problems_solved: string[] | null;
   target_customers: string | null;
-  market_size: string | null;
+  market_size: string[];
   niche: string | null;
   category: string | null;
   marketing_strategy: string | null;
@@ -42,6 +44,7 @@ interface BusinessIdea {
 }
 
 export default function BusinessIdeasPage() {
+  const { user, profile } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
@@ -51,17 +54,18 @@ export default function BusinessIdeasPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const itemsPerPage = 12;
+  const [showUpgradeTooltip, setShowUpgradeTooltip] = useState(false);
+  const [tooltipPage, setTooltipPage] = useState(0);
+  const itemsPerPage = 50; // Changed from 12 to 50
 
-  // Fetch business ideas from API
-  useEffect(() => {
-    fetchBusinessIdeas();
-  }, [currentPage]);
+  // Check if user is Pro (has premium subscription)
+  const isProUser = profile?.plan_type === 'pro' || profile?.plan_type === 'premium';
 
-  const fetchBusinessIdeas = async () => {
+  const fetchBusinessIdeas = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/business-ideas');
+      // Add pagination parameters to the API call
+      const response = await fetch(`/api/business-ideas?page=${currentPage}&limit=${itemsPerPage}`);
       const data = await response.json();
       
       if (data.success) {
@@ -77,6 +81,24 @@ export default function BusinessIdeasPage() {
     } finally {
       setLoading(false);
     }
+  }, [currentPage, itemsPerPage]);
+
+  // Fetch business ideas from API with pagination
+  useEffect(() => {
+    fetchBusinessIdeas();
+  }, [fetchBusinessIdeas]);
+
+  // Handle page change with subscription check
+  const handlePageChange = (page: number) => {
+    if (!isProUser && page > 1) {
+      // Show upgrade tooltip for Free users trying to access pages > 1
+      setTooltipPage(page);
+      setShowUpgradeTooltip(true);
+      setTimeout(() => setShowUpgradeTooltip(false), 3000); // Hide after 3 seconds
+      return;
+    }
+    
+    setCurrentPage(page);
   };
 
   // Filter and sort ideas
@@ -111,10 +133,6 @@ export default function BusinessIdeasPage() {
     }
   });
 
-  // Paginate ideas
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedIdeas = sortedIdeas.slice(startIndex, startIndex + itemsPerPage);
-
   // Get unique categories for filters
   const categories = Array.from(new Set(businessIdeas.map(idea => idea.category).filter((category): category is string => Boolean(category))));
   const filters = [
@@ -135,23 +153,26 @@ export default function BusinessIdeasPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 1) return '1 day ago';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
-    if (diffDays < 365) return `${Math.ceil(diffDays / 30)} months ago`;
-    return `${Math.ceil(diffDays / 365)} years ago`;
+    // Always show as DD/MM/YYYY format
+    return date.toLocaleDateString('en-GB', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
   };
 
-  const getMarketSizeColor = (marketSize: string | null) => {
+  const getMarketSizeColor = (marketSize: string[] | string | null) => {
     if (!marketSize) return 'bg-gray-100 text-gray-700';
-    const size = marketSize.toLowerCase();
-    if (size.includes('large') || size.includes('massive')) return 'bg-green-100 text-green-700';
-    if (size.includes('medium')) return 'bg-yellow-100 text-yellow-700';
-    if (size.includes('small') || size.includes('niche')) return 'bg-blue-100 text-blue-700';
+    
+    // Handle both array and string formats
+    const sizeString = Array.isArray(marketSize) ? marketSize[0] || '' : marketSize;
+    if (!sizeString) return 'bg-gray-100 text-gray-700';
+    
+    const size = sizeString.toLowerCase();
+    if (size.includes('large') || size.includes('massive') || size.includes('$1b') || size.includes('billion')) return 'bg-green-100 text-green-700';
+    if (size.includes('medium') || size.includes('$100m') || size.includes('million')) return 'bg-yellow-100 text-yellow-700';
+    if (size.includes('small') || size.includes('niche') || size.includes('$10m')) return 'bg-blue-100 text-blue-700';
     return 'bg-gray-100 text-gray-700';
   };
 
@@ -161,6 +182,44 @@ export default function BusinessIdeasPage() {
     if (count >= 5) return 'bg-purple-100 text-purple-700';
     if (count >= 3) return 'bg-blue-100 text-blue-700';
     return 'bg-gray-100 text-gray-700';
+  };
+
+  // Generate page numbers for pagination
+  const generatePageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total is small
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Show first few pages, current page, and last few pages
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
   };
 
   if (loading) {
@@ -248,14 +307,14 @@ export default function BusinessIdeasPage() {
         {/* Results Count */}
         <div className="mb-4">
           <p className="text-gray-600">
-            Showing {paginatedIdeas.length} of {filteredIdeas.length} ideas 
+            Showing {filteredIdeas.length} of {businessIdeas.length} ideas 
             {filteredIdeas.length !== businessIdeas.length && ` (filtered from ${businessIdeas.length} total)`}
           </p>
         </div>
 
         {/* Ideas Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-          {paginatedIdeas.map(idea => (
+          {sortedIdeas.map(idea => (
             <div key={idea.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-200">
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -299,7 +358,7 @@ export default function BusinessIdeasPage() {
                       <span>Market</span>
                     </div>
                     <span className={`text-sm font-medium px-2 py-1 rounded-full ${getMarketSizeColor(idea.market_size)}`}>
-                      {idea.market_size || 'Unknown'}
+                      {Array.isArray(idea.market_size) ? (idea.market_size[0] || 'Unknown') : (idea.market_size || 'Unknown')}
                     </span>
                   </div>
                   
@@ -346,7 +405,7 @@ export default function BusinessIdeasPage() {
                     <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
                       <Bookmark className="w-5 h-5" />
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                    <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
                       <Share2 className="w-5 h-5" />
                     </button>
                   </div>
@@ -360,24 +419,59 @@ export default function BusinessIdeasPage() {
           ))}
         </div>
 
-        {/* Pagination */}
+        {/* Enhanced Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-center space-x-2">
+          <div className="flex items-center justify-center space-x-2 mb-8">
+            {/* Previous Button */}
             <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
               className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             
-            <span className="px-4 py-2 text-gray-700">
-              Page {currentPage} of {totalPages}
-            </span>
+            {/* Page Numbers */}
+            <div className="flex items-center space-x-1">
+              {generatePageNumbers().map((page, index) => (
+                <div key={index} className="relative">
+                  {page === '...' ? (
+                    <span className="px-3 py-2 text-gray-400">...</span>
+                  ) : (
+                    <button
+                      onClick={() => handlePageChange(page as number)}
+                      disabled={!isProUser && (page as number) > 1}
+                      className={`w-10 h-10 rounded-full border transition-all duration-200 ${
+                        currentPage === page
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : !isProUser && (page as number) > 1
+                          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                      }`}
+                      title={!isProUser && (page as number) > 1 ? 'Upgrade to Pro to unlock more ideas' : ''}
+                    >
+                      {page}
+                    </button>
+                  )}
+                  
+                  {/* Upgrade Tooltip */}
+                  {showUpgradeTooltip && tooltipPage === page && !isProUser && (page as number) > 1 && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-10">
+                      <div className="flex items-center space-x-2">
+                        <Lock className="w-4 h-4" />
+                        <span>Upgrade to Pro to unlock more ideas</span>
+                      </div>
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
             
+            {/* Next Button */}
             <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages || (!isProUser && currentPage >= 1)}
               className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />

@@ -11,89 +11,107 @@ export interface RedditPost {
   permalink: string;
 }
 
+// Configuration constants
+const POSTS_LIMIT = 15; // Number of posts to fetch from each sort type (Top, Hot, New)
+
 export const redditAPI = {
   // Exact same subreddits as your Python code
   //SUBREDDITS: [ "Entrepreneur", "indiehackers", "sidehustle", "SideProject", "startups", "smallbusiness", "SaaS", "microsaas"],
   //SUBREDDITS: [ "Entrepreneur","indiehackers"],
   SUBREDDITS: [ "Entrepreneur", "indiehackers", "sidehustle", "SideProject", "startups", "smallbusiness", "SaaS", "microsaas", "Software", "Productivity", "LinkedIn", "FinTech", "Photography", "GameDev", "Accounting", "CyberSecurity", "SEO"],
 
-  // Reddit URL endpoints for different sorting options
-  getRedditUrls(subreddit: string, limit: number = 50) {
+  // Reddit URL endpoints for Top, Hot, and New sorting options
+  getRedditUrls(subreddit: string, limit: number = POSTS_LIMIT) {
     return {      
       top: `https://www.reddit.com/r/${subreddit}/top.json?t=month&limit=${limit}`,
       
-      //hot: `https://www.reddit.com/r/${subreddit}/hot.json?limit=${limit}`,
+      hot: `https://www.reddit.com/r/${subreddit}/hot.json?limit=${limit}`,
       
-      //new: `https://www.reddit.com/r/${subreddit}/new.json?limit=${limit}`,
+      new: `https://www.reddit.com/r/${subreddit}/new.json?limit=${limit}`,
       
       //best: `https://www.reddit.com/r/${subreddit}/best.json?limit=${limit}`
+      
     };
   },
 
-  // New function: Get posts from a single subreddit
-  async getPosts(subreddit: string, limit: number = 20): Promise<RedditPost[]> {
+  // New function: Get posts from a single subreddit (Top, Hot, New)
+  async getPosts(subreddit: string, limit: number = POSTS_LIMIT): Promise<RedditPost[]> {
     try {
-      console.log(`📥 Fetching posts from r/${subreddit} with limit ${limit}...`);
+      console.log(`📥 Fetching posts from r/${subreddit} (Top, Hot, New) with limit ${limit} each...`);
       
       const urls = this.getRedditUrls(subreddit, limit);
       const allPosts: RedditPost[] = [];
+      const seenIds = new Set<string>(); // To avoid duplicates across different sorts
       
-      // Fetch from top posts (most popular)
-      const topUrl = urls.top;
-      console.log(`🔗 Fetching from: ${topUrl}`);
+      // Fetch from Top, Hot, and New posts
+      const sortTypes = ['top', 'hot', 'new'] as const;
       
-      const response = await fetch(topUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Accept': 'application/json',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
-      
-      if (!response.ok) {
-        console.log(`⚠️ Failed to fetch from r/${subreddit}: ${response.status} ${response.statusText}`);
-        return [];
-      }
-      
-      const data = await response.json();
-      const posts = data.data?.children || [];
-      
-      console.log(`✅ Fetched ${posts.length} posts from r/${subreddit}`);
-      
-      // Process posts up to the specified limit
-      let processedCount = 0;
-      
-      for (const post of posts) {
-        if (processedCount >= limit) break;
+      for (const sortType of sortTypes) {
+        const url = urls[sortType];
+        console.log(`🔗 Fetching ${sortType} posts from: ${url}`);
         
-        const postData = post.data;
-        
-        // Skip posts with no content
-        if (!postData.title || postData.title.trim().length < 10) {
+        try {
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+              'Accept': 'application/json',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+          
+          if (!response.ok) {
+            console.log(`⚠️ Failed to fetch ${sortType} from r/${subreddit}: ${response.status} ${response.statusText}`);
+            continue;
+          }
+          
+          const data = await response.json();
+          const posts = data.data?.children || [];
+          
+          console.log(`✅ Fetched ${posts.length} ${sortType} posts from r/${subreddit}`);
+          
+          // Process posts up to the specified limit for this sort type
+          let processedCount = 0;
+          
+          for (const post of posts) {
+            if (processedCount >= limit) break;
+            
+            const postData = post.data;
+            
+            // Skip posts with no content or already seen
+            if (!postData.title || postData.title.trim().length < 10 || seenIds.has(postData.id)) {
+              continue;
+            }
+            
+            // Create RedditPost object
+            const redditPost: RedditPost = {
+              id: postData.id,
+              title: postData.title,
+              content: postData.selftext || '',
+              subreddit: postData.subreddit,
+              score: postData.score || 0,
+              url: postData.url,
+              created_utc: postData.created_utc,
+              author: postData.author,
+              num_comments: postData.num_comments || 0,
+              permalink: postData.permalink
+            };
+            
+            allPosts.push(redditPost);
+            seenIds.add(postData.id);
+            processedCount++;
+          }
+          
+          console.log(`✅ Processed ${processedCount} ${sortType} posts from r/${subreddit}`);
+          
+        } catch (error) {
+          console.log(`❌ Error fetching ${sortType} posts from r/${subreddit}:`, error);
           continue;
         }
-        
-        // Create RedditPost object
-        const redditPost: RedditPost = {
-          id: postData.id,
-          title: postData.title,
-          content: postData.selftext || '',
-          subreddit: postData.subreddit,
-          score: postData.score || 0,
-          url: postData.url,
-          created_utc: postData.created_utc,
-          author: postData.author,
-          num_comments: postData.num_comments || 0,
-          permalink: postData.permalink
-        };
-        
-        allPosts.push(redditPost);
-        processedCount++;
       }
       
-      console.log(`✅ Processed ${allPosts.length} posts from r/${subreddit}`);
+      console.log(`✅ Total processed ${allPosts.length} unique posts from r/${subreddit} (Top, Hot, New)`);
       return allPosts;
       
     } catch (error) {
@@ -111,10 +129,10 @@ export const redditAPI = {
     return normalized.substring(0, 100);
   },
 
-  async fetchAllSubreddits(limit: number = 20, subredditNames?: string[]): Promise<RedditPost[]> {
+  async fetchAllSubreddits(limit: number = POSTS_LIMIT, subredditNames?: string[]): Promise<RedditPost[]> {
     try {
       const subreddits = subredditNames && subredditNames.length > 0 ? subredditNames : this.SUBREDDITS;
-      console.log('🚀 Starting to fetch posts from ALL sorting methods (top, hot, new, best) from subreddits:', subreddits);
+      console.log('🚀 Starting to fetch posts from ALL sorting methods (top, hot, new) from subreddits:', subreddits);
       
       const allPosts: RedditPost[] = [];
       
@@ -229,15 +247,27 @@ export const redditAPI = {
       'business', 'startup', 'entrepreneur', 'saas', 'app', 'product', 'service',
       'company', 'market', 'revenue', 'profit', 'customer', 'client', 'user',
       'idea', 'opportunity', 'venture', 'investment', 'funding', 'launch',
-      'indie', 'side hustle', 'passive income', 'freelance', 'consulting'
+      'indie', 'side hustle', 'passive income', 'freelance', 'consulting',
+      'problem', 'struggle', 'challenge', 'growth', 'scale', 'expensive', 'cost'
+    ];
+
+    const excludeKeywords = [
+      'meme', 'joke', 'funny', 'politics', 'nsfw', 'rant', 'storytime', 'random'
     ];
     
     const filtered = posts.filter(post => {
       const combinedText = `${post.title} ${post.content}`.toLowerCase();
-      return businessKeywords.some(keyword => combinedText.includes(keyword));
+      
+      // Must have at least one business keyword
+      const hasBusinessKeyword = businessKeywords.some(keyword => combinedText.includes(keyword));
+      
+      // Must NOT have any exclude keywords
+      const hasExcludeKeyword = excludeKeywords.some(keyword => combinedText.includes(keyword));
+      
+      return hasBusinessKeyword && !hasExcludeKeyword;
     });
     
-    console.log(`✅ Filtered ${posts.length} posts (all sorting methods) down to ${filtered.length} business idea posts`);
+    console.log(`✅ Filtered ${posts.length} posts down to ${filtered.length} business idea posts`);
     return filtered;
   },
 

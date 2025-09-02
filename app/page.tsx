@@ -1,7 +1,7 @@
 'use client';
 
 import { Inter } from 'next/font/google';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Sparkles, TrendingUp, Target, Users, Zap, CheckCircle, Star, Globe, FileText, Lightbulb, BarChart3 } from 'lucide-react';
 
@@ -10,6 +10,87 @@ const inter = Inter({
   weight: ['400', '600', '700', '800', '900'],
   variable: '--font-inter',
 });
+
+// Animated Text Component
+function AnimatedText() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  const words = [
+    { text: 'Business', color: 'from-blue-600 to-purple-600' },
+    { text: 'Marketing', color: 'from-purple-600 to-pink-600' }
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsAnimating(true);
+      setIsVisible(false);
+      
+      setTimeout(() => {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % words.length);
+        setIsVisible(true);
+        setIsAnimating(false);
+      }, 300);
+    }, 2000); // Changed from 3500ms to 2000ms for more frequent changes
+
+    return () => clearInterval(interval);
+  }, [words.length]);
+
+  return (
+    <span className="relative inline">
+      <span
+        className={`inline transition-all duration-400 ease-in-out ${
+          isVisible 
+            ? 'opacity-100 transform translate-x-0' 
+            : 'opacity-0 transform translate-x-8'
+        } ${isAnimating ? 'animate-pulse' : ''}`}
+        style={{
+          animation: isVisible ? 'slideInFromLeft 0.4s ease-out' : 'slideOutToRight 0.3s ease-in'
+        }}
+      >
+        <span 
+          className={`bg-gradient-to-r ${words[currentIndex].color} bg-clip-text text-transparent font-extrabold tracking-tight transition-all duration-400`}
+          style={{
+            backgroundSize: '200% 200%',
+            animation: isVisible ? 'gradient-shift 2s ease-in-out infinite' : 'none'
+          }}
+        >
+          {words[currentIndex].text}
+        </span>
+      </span>
+      
+      <style jsx>{`
+        @keyframes gradient-shift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        
+        @keyframes slideInFromLeft {
+          0% { 
+            opacity: 0; 
+            transform: translate-x-8; 
+          }
+          100% { 
+            opacity: 1; 
+            transform: translate-x-0; 
+          }
+        }
+        
+        @keyframes slideOutToRight {
+          0% { 
+            opacity: 1; 
+            transform: translate-x-0; 
+          }
+          100% { 
+            opacity: 0; 
+            transform: translate-x-8; 
+          }
+        }
+      `}</style>
+    </span>
+  );
+}
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -93,7 +174,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 text-center">
                   {/* Headline */}
         <h1 className="text-6xl md:text-7xl font-extrabold leading-tight text-gray-900">
-          Generate Business Ideas <br /> AI-Powered Intelligence
+          Generate <AnimatedText /> Ideas <br /> AI-Powered Intelligence
         </h1>
 
         {/* Subheadline */}
@@ -270,7 +351,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 mb-6">How Goldmines Works</h2>
-            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Our AI analyzes thousands of Reddit discussions to identify trending business opportunities in just 3 simple steps.
             </p>
           </div>
@@ -280,8 +361,8 @@ export default function LandingPage() {
               <div className="w-20 h-20 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-200">
                 <TrendingUp className="w-10 h-10 text-blue-600" />
               </div>
-              <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 mb-4">1. AI Scans Reddit</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">1. AI Scans Reddit</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Our AI continuously monitors Reddit communities, identifying posts with high engagement and unmet needs.
               </p>
             </div>
@@ -290,8 +371,8 @@ export default function LandingPage() {
               <div className="w-20 h-20 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-200">
                 <Target className="w-10 h-10 text-purple-600" />
               </div>
-              <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 mb-4">2. Validates Opportunities</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">2. Validates Opportunities</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Each opportunity is analyzed for market size, competition, and feasibility to ensure high success potential.
               </p>
             </div>
@@ -300,8 +381,8 @@ export default function LandingPage() {
               <div className="w-20 h-20 bg-gradient-to-r from-green-100 to-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-200">
                 <Zap className="w-10 h-10 text-green-600" />
               </div>
-              <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 mb-4">3. Delivers Insights</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">3. Delivers Insights</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Get detailed reports with market analysis, competitor research, and actionable next steps for your business.
               </p>
             </div>
@@ -313,8 +394,8 @@ export default function LandingPage() {
       <section id="features" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-6">Powerful Features</h2>
-            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-2xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">Powerful Features</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Everything you need to identify, validate, and launch your next successful business idea.
             </p>
           </div>
@@ -324,8 +405,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-purple-100 rounded-xl flex items-center justify-center mb-6">
                 <BarChart3 className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Market Intelligence</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Market Intelligence</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Real-time market analysis with competitor research, pricing insights, and growth projections.
               </p>
             </div>
@@ -334,8 +415,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center mb-6">
                 <Users className="w-6 h-6 text-purple-600" />
               </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Community Insights</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Community Insights</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Deep dive into Reddit communities to understand user pain points and unmet needs.
               </p>
             </div>
@@ -344,8 +425,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-blue-100 rounded-xl flex items-center justify-center mb-6">
                 <Lightbulb className="w-6 h-6 text-green-600" />
               </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Idea Generator</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Idea Generator</h3>
+              <p className="text-gray-600 leading-relaxed">
                 AI-powered idea generation based on trending topics and market gaps.
               </p>
             </div>
@@ -354,8 +435,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl flex items-center justify-center mb-6">
                 <FileText className="w-6 h-6 text-yellow-600" />
               </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Detailed Reports</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Detailed Reports</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Comprehensive business plans with market analysis, financial projections, and launch strategies.
               </p>
             </div>
@@ -364,8 +445,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-gradient-to-r from-red-100 to-pink-100 rounded-xl flex items-center justify-center mb-6">
                 <Globe className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Global Coverage</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Global Coverage</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Monitor markets worldwide to discover opportunities in emerging economies and untapped regions.
               </p>
             </div>
@@ -374,8 +455,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center mb-6">
                 <Star className="w-6 h-6 text-indigo-600" />
               </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Success Stories</h3>
-              <p className="text-gray-600 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Success Stories</h3>
+              <p className="text-gray-600 leading-relaxed">
                 Learn from entrepreneurs who've successfully launched businesses using our platform.
               </p>
             </div>
@@ -387,8 +468,8 @@ export default function LandingPage() {
       <section id="demo" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-6">See Goldmines in Action</h2>
-            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-2xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">See Goldmines in Action</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Explore real examples of business opportunities discovered by our AI platform.
             </p>
           </div>
@@ -398,8 +479,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-6">
                 <Lightbulb className="w-6 h-6 text-white" />
                 </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Business Idea</h3>
-              <p className="text-gray-600 mb-6 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Business Idea</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
                 AI-powered meal planning app for busy professionals with dietary restrictions.
               </p>
               <div className="flex items-center justify-between text-sm">
@@ -412,8 +493,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mb-6">
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Marketing Idea</h3>
-              <p className="text-gray-600 mb-6 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Marketing Idea</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
                 TikTok marketing agency specializing in viral content for local businesses.
               </p>
               <div className="flex items-center justify-between text-sm">
@@ -426,8 +507,8 @@ export default function LandingPage() {
               <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mb-6">
                 <BarChart3 className="w-6 h-6 text-white" />
                 </div>
-              <h3 className="text-xl font-extrabold tracking-tight text-gray-900 mb-4">Case Study</h3>
-              <p className="text-gray-600 mb-6 leading-relaxed font-extrabold tracking-tight">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Case Study</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
                 How a fitness app reached 100K users in 6 months using Reddit insights.
               </p>
               <div className="flex items-center justify-between text-sm">
@@ -445,8 +526,8 @@ export default function LandingPage() {
       <section id="pricing" className="py-20 bg-gray-50">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-6">Pricing & Plans</h2>
-            <p className="text-xl font-extrabold tracking-tight text-gray-600 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">Pricing & Plans</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Choose the perfect plan to start generating winning business ideas and strategies.
             </p>
           </div>
@@ -632,8 +713,8 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-6xl md:text-7xl font-extrabold tracking-tight text-white mb-6">Ready to Discover Your Next Business Idea?</h2>
-          <p className="text-lg md:text-xl font-extrabold tracking-tight text-blue-100 mb-8 leading-relaxed">
+          <h2 className="text-6xl md:text-7xl font-bold text-white mb-6">Ready to Discover Your Next Business Idea?</h2>
+          <p className="text-lg md:text-xl text-blue-100 mb-8 leading-relaxed">
             Join thousands of entrepreneurs who've already found their million-dollar ideas with Goldmines.
           </p>
           <Link href="/signup" className="bg-white text-blue-600 px-8 py-4 rounded-xl hover:shadow-xl transition-all duration-200 font-semibold text-lg inline-flex items-center space-x-2 group">

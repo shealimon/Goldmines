@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { redditAPI } from '@/lib/reddit';
 import { openaiService } from '@/lib/openai';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { NextRequest } from 'next/server';
 
 // Helper function to detect duplicate posts across subreddits
@@ -175,156 +175,194 @@ const cleanCorruptedData = async (supabase: any) => {
   }
 };
 
-// Process posts in batches with parallel processing
+// Process posts in batches with smart filtering and deduplication
 const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promise<any[]> => {
-  const batches: any[][] = [];
-  for (let i = 0; i < posts.length; i += batchSize) {
-    batches.push(posts.slice(i, i + batchSize));
+  console.log(`🚀 Starting smart processing of ${posts.length} posts...`);
+
+  // Step 1: Apply keyword filter to remove junk posts
+  console.log(`🔍 Applying keyword filter to ${posts.length} posts...`);
+  const filteredPosts = redditAPI.filterBusinessIdeaPosts(posts);
+  console.log(`✅ Keyword filter: ${filteredPosts.length}/${posts.length} posts passed`);
+
+  // Step 2: Limit to top ~50 posts per day to avoid wasting tokens
+  const maxPostsPerDay = 50;
+  const limitedPosts = filteredPosts.slice(0, maxPostsPerDay);
+  console.log(`📊 Limited to top ${limitedPosts.length} posts per day`);
+
+  // Step 3: Check for duplicates using content hash
+  console.log(`🔍 Checking for duplicates using content hash...`);
+  const uniquePosts = [];
+  const seenHashes = new Set();
+
+  for (const post of limitedPosts) {
+    const contentHash = redditAPI.generateContentHash(post.title, post.content);
+    
+    // Check if this hash already exists in database
+    const { data: existingByHash, error: hashError } = await supabaseAdmin
+      .from('business_ideas')
+      .select('id, business_idea_name')
+      .ilike('business_idea_name', `%${contentHash.substring(0, 20)}%`)
+      .limit(1);
+
+    if (hashError) {
+      console.error('Error checking content hash:', hashError);
+      continue;
+    }
+
+    if (existingByHash && existingByHash.length > 0) {
+      console.log(`🚫 Skipping duplicate content: ${post.title.substring(0, 50)}...`);
+      continue;
+    }
+
+    // Also check local hash to avoid processing same content in this batch
+    if (seenHashes.has(contentHash)) {
+      console.log(`🚫 Skipping duplicate content in batch: ${post.title.substring(0, 50)}...`);
+      continue;
+    }
+
+    seenHashes.add(contentHash);
+    uniquePosts.push(post);
   }
 
-  console.log(`Processing ${posts.length} posts in ${batches.length} batches of ${batchSize}`);
+  console.log(`✅ Deduplication: ${uniquePosts.length}/${limitedPosts.length} unique posts remaining`);
+
+  if (uniquePosts.length === 0) {
+    console.log(`❌ No unique posts to process after filtering and deduplication`);
+    return [];
+  }
+
+  // Step 4: Create batches for processing
+  const batches: any[][] = [];
+  for (let i = 0; i < uniquePosts.length; i += batchSize) {
+    batches.push(uniquePosts.slice(i, i + batchSize));
+  }
+
+  console.log(`📦 Created ${batches.length} batches of ${batchSize} posts each`);
+  console.log(`⏱️ Estimated processing time: ${Math.round(batches.length * 15)} seconds (15s per batch)`);
+  console.log(`📋 Sample posts to be processed:`);
+  uniquePosts.slice(0, 3).forEach((post, index) => {
+    console.log(`  ${index + 1}. ${post.title.substring(0, 80)}...`);
+  });
 
   const allProcessedPosts: any[] = [];
   
-  // Process batches in parallel
-  const batchResults = await Promise.all(
-    batches.map(async (batch, batchIndex) => {
-      console.log(`Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} posts`);
-      
-      try {
-        // Pre-filter posts to remove non-business ideas and duplicates
-        const filteredPosts = [];
-        for (const post of batch) {
-          // First check if it's a business idea
-          const hasBusinessIdea = await openaiService.preFilterBusinessIdea(
-            `Title: ${post.title}\nContent: ${post.content}`
-          );
-          
-          if (!hasBusinessIdea) {
-            console.log(`Skipping post ${post.id} - no business idea detected`);
-            continue;
-          }
-
-          // Then check for duplicates across subreddits
-          const duplicateCheck = await detectDuplicatePost(post, supabase);
-          if (duplicateCheck.isDuplicate) {
-            console.log(`🚫 Skipping duplicate post ${post.id}: ${duplicateCheck.reason}`);
-            continue;
-          }
-
-          console.log(`✅ Post ${post.id} passed duplicate check - adding to batch`);
-          filteredPosts.push(post);
+  // Process batches sequentially to avoid rate limits
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+    const progress = Math.round(((batchIndex + 1) / batches.length) * 100);
+    console.log(`🔄 Processing batch ${batchIndex + 1}/${batches.length} (${progress}%) with ${batch.length} posts`);
+    
+    try {
+      // Check for duplicates across subreddits
+      const filteredPosts = [];
+      for (const post of batch) {
+        const duplicateCheck = await detectDuplicatePost(post, supabase);
+        if (duplicateCheck.isDuplicate) {
+          console.log(`🚫 Skipping duplicate post ${post.id}: ${duplicateCheck.reason}`);
+          continue;
         }
-
-        if (filteredPosts.length === 0) {
-          console.log(`Batch ${batchIndex + 1}: No business ideas found`);
-          return [];
-        }
-
-        // Process each analyzed post directly (individual processing)
-        const batchProcessedPosts: any[] = [];
-        
-        for (const post of filteredPosts) {
-          try {
-            console.log(`Analyzing post: ${post.title.substring(0, 50)}...`);
-            const analyzedPost = await openaiService.analyzeRedditPost(post);
-            
-            // Validate that full_analysis is not empty
-            if (!analyzedPost.full_analysis || analyzedPost.full_analysis.trim().length < 50) {
-              console.log(`⚠️ Skipping post ${post.id} - full_analysis is empty or too short`);
-              continue;
-            }
-
-            // Validate that business idea name is not empty
-            if (!analyzedPost.business_idea_name || analyzedPost.business_idea_name.trim().length < 5) {
-              console.log(`⚠️ Skipping post ${post.id} - business_idea_name is empty or too short`);
-              continue;
-            }
-            
-            // Save to database using already-parsed data
-            const businessIdeaData = {
-              reddit_post_id: post.id,
-              reddit_title: post.title,
-              reddit_content: post.content || '',
-              reddit_author: post.author,
-              reddit_subreddit: post.subreddit,
-              reddit_score: post.score || 0,
-              reddit_comments: post.num_comments || 0,
-              reddit_url: post.url,
-              reddit_permalink: post.permalink,
-              reddit_created_utc: post.created_utc,
-              business_idea_name: analyzedPost.business_idea_name,
-              opportunity_points: analyzedPost.opportunity_points,
-              problems_solved: analyzedPost.problems_solved,
-              target_customers: analyzedPost.target_customers,
-              market_size: analyzedPost.market_size,
-              niche: analyzedPost.niche,
-              category: analyzedPost.category,
-              marketing_strategy: analyzedPost.marketing_strategy,
-              analysis_status: 'completed',
-              full_analysis: analyzedPost.full_analysis
-            };
-
-            const { data: businessData, error: businessError } = await supabase
-              .from('business_ideas')
-              .insert(businessIdeaData)
-              .select()
-              .single();
-
-            if (businessError) {
-              console.error(`❌ Error saving business idea for post ${post.id}:`, businessError);
-              
-              // Check if it's a duplicate constraint violation
-              if (businessError.code === '23505') {
-                console.log(`🚫 Database constraint violation - duplicate detected for post ${post.id}`);
-                continue;
-              }
-              
-              // Check if it's a check constraint violation
-              if (businessError.code === '23514') {
-                console.log(`🚫 Check constraint violation for post ${post.id}:`, businessError.message);
-                continue;
-              }
-              
-              continue;
-            }
-
-            if (!businessData || !businessData.id) {
-              console.error(`❌ No data returned after saving business idea for post ${post.id}`);
-              continue;
-            }
-
-            console.log('✅ Successfully saved business idea:', businessData.id);
-            
-            batchProcessedPosts.push({
-              post_id: post.id,
-              title: post.title,
-              business_idea: analyzedPost.business_idea_name,
-              saved_id: businessData.id
-            });
-            
-            // Add delay between calls to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-          } catch (error) {
-            console.error(`Error processing post ${post.id}:`, error);
-            continue;
-          }
-        }
-
-        return batchProcessedPosts;
-      } catch (error) {
-        console.error(`Error processing batch ${batchIndex + 1}:`, error);
-        return [];
+        filteredPosts.push(post);
       }
-    })
-  );
 
-  // Flatten results
-  batchResults.forEach(batch => {
-    allProcessedPosts.push(...batch);
-  });
+      console.log(`✅ ${filteredPosts.length}/${batch.length} posts passed duplicate check`);
 
+      if (filteredPosts.length === 0) {
+        console.log(`Batch ${batchIndex + 1}: All posts were duplicates`);
+        continue;
+      }
+
+      // Batch analyze posts with OpenAI (includes pre-filtering and analysis in one call)
+      console.log(`🧠 Batch analyzing ${filteredPosts.length} posts with OpenAI...`);
+      const analyzedPosts = await openaiService.batchAnalyzeRedditPosts(filteredPosts);
+      
+      console.log(`🎯 Generated ${analyzedPosts.length} business ideas from ${filteredPosts.length} posts`);
+      
+      // Process each analyzed post
+      const batchProcessedPosts: any[] = [];
+      
+      // Get the Reddit post database ID directly from the loaded data
+      const redditPostDbId = filteredPosts[0]?.db_id; // Database ID is already available
+      const originalPostId = filteredPosts[0]?.id; // Original Reddit post ID
+      
+      console.log(`🔍 Processing Reddit post: ${originalPostId} (DB ID: ${redditPostDbId})`);
+      
+      if (!redditPostDbId) {
+        console.error(`❌ No database ID found for Reddit post: ${originalPostId}`);
+        continue; // Skip this batch
+      }
+
+      for (const analyzedPost of analyzedPosts) {
+        try {
+          // Validate that full_analysis is not empty
+          if (!analyzedPost.full_analysis || analyzedPost.full_analysis.trim().length < 50) {
+            console.log(`⚠️ Skipping idea - full_analysis is empty or too short`);
+            continue;
+          }
+
+          // Validate that business idea name is not empty
+          if (!analyzedPost.business_idea_name || analyzedPost.business_idea_name.trim().length < 5) {
+            console.log(`⚠️ Skipping idea - business_idea_name is empty or too short`);
+            continue;
+          }
+
+          // Save to database using the shared Reddit post database ID
+          const businessIdeaData = {
+            reddit_post_id: redditPostDbId, // Use the shared database ID for all ideas from this post
+            business_idea_name: analyzedPost.business_idea_name,
+            opportunity_points: analyzedPost.opportunity_points,
+            problems_solved: analyzedPost.problems_solved,
+            target_customers: analyzedPost.target_customers,
+            market_size: analyzedPost.market_size,
+            niche: analyzedPost.niche,
+            category: analyzedPost.category,
+            marketing_strategy: analyzedPost.marketing_strategy,
+            analysis_status: 'completed',
+            full_analysis: analyzedPost.full_analysis
+          };
+
+          const { data: businessData, error: businessError } = await supabaseAdmin
+            .from('business_ideas')
+            .insert(businessIdeaData)
+            .select()
+            .single();
+
+          if (businessError) {
+            console.error(`❌ Error saving business idea:`, businessError);
+            
+            // Check if it's a duplicate constraint violation
+            if (businessError.code === '23505') {
+              console.log(`🚫 Database constraint violation - duplicate detected for idea: ${analyzedPost.business_idea_name}`);
+              continue;
+            }
+            
+            // Check if it's a check constraint violation
+            if (businessError.code === '23514') {
+              console.log(`🚫 Check constraint violation for idea: ${analyzedPost.business_idea_name}:`, businessError.message);
+              continue;
+            }
+            
+            continue;
+          }
+
+          console.log(`✅ Successfully saved business idea: ${analyzedPost.business_idea_name}`);
+          batchProcessedPosts.push(businessData);
+          
+        } catch (error) {
+          console.error(`❌ Error processing analyzed idea:`, error);
+          continue;
+        }
+      }
+
+      allProcessedPosts.push(...batchProcessedPosts);
+      console.log(`✅ Batch ${batchIndex + 1} completed: ${batchProcessedPosts.length} ideas saved`);
+      
+    } catch (error) {
+      console.error(`❌ Error processing batch ${batchIndex + 1}:`, error);
+      continue;
+    }
+  }
+
+  console.log(`🎉 Smart processing completed! Generated ${allProcessedPosts.length} business ideas from ${uniquePosts.length} unique posts`);
   return allProcessedPosts;
 };
 
@@ -332,62 +370,11 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 5): Promi
 
 export async function POST(request: Request) {
   try {
-    const { testMode = false } = await request.json();
-    
-    if (testMode) {
-      console.log('TEST MODE: Fetching and analyzing Reddit posts...');
-      
-      // First, let's check what's already in the database
-      console.log('🔍 Checking existing posts in database...');
-      const { data: existingPosts, error: existingError } = await supabase
-        .from('business_ideas')
-        .select('id, reddit_title, reddit_author, reddit_subreddit, created_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (existingError) {
-        console.log('⚠️ Error fetching existing posts:', existingError);
-      } else {
-        console.log(`📊 Found ${existingPosts?.length || 0} existing posts:`, existingPosts?.map(p => ({
-          id: p.id,
-          title: p.reddit_title,
-          author: p.reddit_author,
-          subreddit: p.reddit_subreddit,
-          created: p.created_at
-        })));
-      }
-      
-      // Fetch 50 posts from multiple subreddits for testing
-      const posts = await redditAPI.fetchAllSubreddits(50);
-      console.log('Fetched posts from Reddit:', posts.length);
-      
-      if (posts.length === 0) {
-        return NextResponse.json({ 
-          success: false, 
-          message: 'No posts fetched from Reddit'
-        });
-      }
 
-      // Process posts in batches with parallel processing
-      const processedPosts = await processPostsInBatches(posts, 5); // Process 5 posts per batch
-      
-      console.log(`Test completed: ${processedPosts.length} posts analyzed and saved`);
-      
-      return NextResponse.json({
-        success: true,
-        message: `Test completed successfully - ${processedPosts.length} Reddit posts analyzed and business ideas saved`,
-        test_mode: true,
-        total_posts_fetched: posts.length,
-        successfully_processed: processedPosts.length,
-        processed_posts: processedPosts
-      });
-    }
-
-    // Your existing code for normal mode continues here...
-    console.log('POST /api/reddit - Fetching 50 posts from Reddit...');
+    console.log('POST /api/reddit - Fetching posts from Reddit...');
     
-    // Fetch 50 posts from Reddit
-    const posts = await redditAPI.fetchAllSubreddits(50);
+    // Fetch posts from Reddit using configured limit
+    const posts = await redditAPI.fetchAllSubreddits();
     console.log('Posts fetched from Reddit:', posts.length);
     
     if (posts.length === 0) {
@@ -397,68 +384,57 @@ export async function POST(request: Request) {
       });
     }
 
-    // Check for duplicates before inserting
-    const redditPostIds = posts.map(post => post.id);
-    console.log('Checking for duplicates:', redditPostIds);
-    
-    const { data: existingPosts, error: checkError } = await supabase
-      .from('reddit_posts')
-      .select('reddit_post_id')
-      .in('reddit_post_id', redditPostIds);
-    
-    if (checkError) {
-      console.error('Error checking duplicates:', checkError);
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Error checking for duplicate posts'
-      }, { status: 500 });
-    }
+    // Step 1: Deduplicate Reddit posts before saving
+    console.log(`🔍 Deduplicating ${posts.length} Reddit posts...`);
+    const uniquePosts = new Map();
+    posts.forEach(post => {
+      if (!uniquePosts.has(post.id)) {
+        uniquePosts.set(post.id, post);
+      }
+    });
+    const deduplicatedPosts = Array.from(uniquePosts.values());
+    console.log(`✅ Deduplicated: ${deduplicatedPosts.length}/${posts.length} unique posts`);
 
-    // Filter out existing posts
-    const existingPostIds = existingPosts?.map(post => post.reddit_post_id) || [];
-    const newPosts = posts.filter(post => !existingPostIds.includes(post.id));
+    // Step 2: Save all unique Reddit posts to database (with duplicate handling)
+    console.log(`💾 Saving ${deduplicatedPosts.length} Reddit posts to database...`);
     
-    if (newPosts.length === 0) {
-      return NextResponse.json({ 
-        success: true, 
-        message: 'All posts already exist in database'
-      });
-    }
+    const redditPostData = deduplicatedPosts.map(post => ({
+      reddit_post_id: post.id,
+      reddit_title: post.title,
+      reddit_content: post.content || '',
+      reddit_author: post.author,
+      reddit_subreddit: post.subreddit,
+      reddit_score: post.score || 0,
+      reddit_comments: post.num_comments || 0,
+      reddit_url: post.url,
+      reddit_permalink: post.permalink,
+      reddit_created_utc: post.created_utc
+    }));
 
-    console.log(`Inserting ${newPosts.length} new posts into reddit_posts table...`);
-    
-    // Insert new posts into reddit_posts table
-    const { data: insertedPosts, error: insertError } = await supabase
+    // Use upsert to handle duplicates gracefully
+    const { data: savedPosts, error: saveError } = await supabaseAdmin
       .from('reddit_posts')
-      .insert(newPosts.map(post => ({
-        reddit_post_id: post.id,
-        title: post.title,
-        content: post.content || '',
-        author: post.author,
-        subreddit: post.subreddit,
-        score: post.score || 0,
-        num_comments: post.num_comments || 0,
-        url: post.url,
-        permalink: post.permalink,
-        created_utc: post.created_utc
-      })))
+      .upsert(redditPostData, { 
+        onConflict: 'reddit_post_id',
+        ignoreDuplicates: false 
+      })
       .select();
 
-    if (insertError) {
-      console.error('Error inserting posts:', insertError);
+    if (saveError) {
+      console.error('Error saving Reddit posts:', saveError);
       return NextResponse.json({ 
         success: false, 
-        message: 'Error inserting posts into database'
+        message: 'Error saving Reddit posts to database'
       }, { status: 500 });
     }
 
-    console.log(`Successfully inserted ${insertedPosts.length} posts into reddit_posts table`);
+    console.log(`✅ Successfully saved ${savedPosts?.length || 0} Reddit posts to database`);
     
     return NextResponse.json({
       success: true,
-      message: `Successfully fetched and stored ${insertedPosts.length} Reddit posts`,
-      posts_fetched: insertedPosts.length,
-      posts: insertedPosts
+      message: `Successfully saved ${savedPosts?.length || 0} Reddit posts to database`,
+      posts_fetched: savedPosts?.length || 0,
+      posts: savedPosts
     });
 
   } catch (error) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openaiService } from '@/lib/openai';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { redditAPI } from '@/lib/reddit';
 
 // Helper function to detect duplicate posts across subreddits
@@ -157,16 +157,9 @@ export async function POST(request: NextRequest) {
     console.log(`📊 Found ${redditPosts.length} posts from marketing subreddits`);
 
     // Filter posts that contain marketing ideas
-    const marketingPosts = [];
-    for (const post of redditPosts) {
-      const isMarketingIdea = await openaiService.preFilterMarketingIdea(
-        `${post.title}\n${post.content}`
-      );
-      
-      if (isMarketingIdea) {
-        marketingPosts.push(post);
-      }
-    }
+    // For now, use all Reddit posts for marketing ideas
+    // TODO: Implement proper marketing idea filtering
+    const marketingPosts = redditPosts;
 
     console.log(`🎯 Filtered to ${marketingPosts.length} marketing idea posts`);
 
@@ -182,8 +175,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`🔍 Analyzing marketing post: "${reddit_post.title}"`);
 
-    // Analyze the post with OpenAI
-    const analyzedPost = await openaiService.analyzeMarketingPost(reddit_post);
+    // Analyze the post with OpenAI using the batch method
+    const analyzedPosts = await openaiService.batchAnalyzeRedditPosts([reddit_post]);
+    const analyzedPost = analyzedPosts[0];
 
     if (analyzedPost.analysis_status === 'failed') {
       return NextResponse.json({
@@ -194,11 +188,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate the analysis
-    if (!analyzedPost.marketing_idea_name || analyzedPost.marketing_idea_name.length < 5) {
+    if (!analyzedPost.business_idea_name || analyzedPost.business_idea_name.length < 5) {
       return NextResponse.json({
         success: false,
-        message: 'Analysis incomplete - marketing_idea_name is empty or too short',
-        idea_name_length: analyzedPost.marketing_idea_name?.length || 0
+        message: 'Analysis incomplete - business_idea_name is empty or too short',
+        idea_name_length: analyzedPost.business_idea_name?.length || 0
       }, { status: 400 });
     }
 
@@ -226,20 +220,20 @@ export async function POST(request: NextRequest) {
       reddit_permalink: reddit_post.permalink,
       reddit_created_utc: reddit_post.created_utc,
 
-      marketing_idea_name: analyzedPost.marketing_idea_name,
-      idea_description: analyzedPost.idea_description,
-      channel: analyzedPost.channel,
-      target_audience: analyzedPost.target_audience,
-      potential_impact: analyzedPost.potential_impact,
-      implementation_tips: analyzedPost.implementation_tips,
-      success_metrics: analyzedPost.success_metrics,
+      marketing_idea_name: analyzedPost.business_idea_name,
+      idea_description: analyzedPost.full_analysis,
+      channel: analyzedPost.marketing_strategy || ['General'],
+      target_audience: analyzedPost.target_customers || ['General'],
+      potential_impact: analyzedPost.market_size || ['Unknown'],
+      implementation_tips: analyzedPost.marketing_strategy || ['General'],
+      success_metrics: ['Engagement', 'Conversion'],
       analysis_status: 'completed',
       full_analysis: analyzedPost.full_analysis
     };
 
     console.log('💾 Saving marketing idea to database...');
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('marketing_ideas')
       .insert(marketingIdeaData)
       .select()
