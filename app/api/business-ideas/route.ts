@@ -136,7 +136,8 @@ export async function POST(request: NextRequest) {
      const analyzedPosts = await openaiService.batchAnalyzeRedditPosts([reddit_post]);
      const analyzedPost = analyzedPosts[0];
     
-    console.log('✅ OpenAI analysis completed:', analyzedPost.business_idea_name);
+         console.log('✅ OpenAI analysis completed:', analyzedPost.business_idea_name);
+     console.log('🔍 Market size from OpenAI:', analyzedPost.market_size);
 
     // Validate that full_analysis is not empty
     if (!analyzedPost.full_analysis || analyzedPost.full_analysis.trim().length < 50) {
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
        opportunity_points: Array.isArray(analyzedPost.opportunity_points) ? analyzedPost.opportunity_points : [analyzedPost.opportunity_points],
        problems_solved: Array.isArray(analyzedPost.problems_solved) ? analyzedPost.problems_solved : [analyzedPost.problems_solved],
        target_customers: Array.isArray(analyzedPost.target_customers) ? analyzedPost.target_customers : [analyzedPost.target_customers],
-       market_size: Array.isArray(analyzedPost.market_size) ? analyzedPost.market_size : [analyzedPost.market_size],
+       market_size: Array.isArray(analyzedPost.market_size) ? analyzedPost.market_size : (analyzedPost.market_size ? [analyzedPost.market_size] : null),
        niche: analyzedPost.niche,
        category: analyzedPost.category,
        marketing_strategy: Array.isArray(analyzedPost.marketing_strategy) ? analyzedPost.marketing_strategy : [analyzedPost.marketing_strategy],
@@ -406,7 +407,7 @@ const processPostsInBatches = async (posts: any[], batchSize: number = 10): Prom
               opportunity_points: Array.isArray(analyzedPost.opportunity_points) ? analyzedPost.opportunity_points : [analyzedPost.opportunity_points],
               problems_solved: Array.isArray(analyzedPost.problems_solved) ? analyzedPost.problems_solved : [analyzedPost.problems_solved],
               target_customers: Array.isArray(analyzedPost.target_customers) ? analyzedPost.target_customers : [analyzedPost.target_customers],
-              market_size: Array.isArray(analyzedPost.market_size) ? analyzedPost.market_size : [analyzedPost.market_size],
+              market_size: Array.isArray(analyzedPost.market_size) ? analyzedPost.market_size : (analyzedPost.market_size ? [analyzedPost.market_size] : null),
                  niche: analyzedPost.niche,
                  category: analyzedPost.category,
               marketing_strategy: Array.isArray(analyzedPost.marketing_strategy) ? analyzedPost.marketing_strategy : [analyzedPost.marketing_strategy],
@@ -625,7 +626,7 @@ async function handleBulkFetchAndAnalyze() {
           opportunity_points: Array.isArray(idea.opportunity_points) ? idea.opportunity_points : [idea.opportunity_points],
           problems_solved: Array.isArray(idea.problems_solved) ? idea.problems_solved : [idea.problems_solved],
           target_customers: Array.isArray(idea.target_customers) ? idea.target_customers : [idea.target_customers],
-          market_size: Array.isArray(idea.market_size) ? idea.market_size : [idea.market_size],
+          market_size: Array.isArray(idea.market_size) ? idea.market_size : (idea.market_size ? [idea.market_size] : null),
           niche: idea.niche,
           category: idea.category,
           marketing_strategy: Array.isArray(idea.marketing_strategy) ? idea.marketing_strategy : [idea.marketing_strategy],
@@ -653,6 +654,7 @@ async function handleBulkFetchAndAnalyze() {
         
         savedBusinessIdeas.push(businessData);
         console.log(`✅ Successfully saved business idea: ${idea.business_idea_name}`);
+        console.log(`🔍 Market size for ${idea.business_idea_name}:`, idea.market_size);
        } catch (error) {
         console.error(`❌ Error processing business idea: ${idea.business_idea_name}`, error);
         continue;

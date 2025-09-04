@@ -3,7 +3,7 @@
 import { Inter } from 'next/font/google';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, TrendingUp, Target, Users, Zap, CheckCircle, Star, Globe, FileText, Lightbulb, BarChart3 } from 'lucide-react';
+import { ArrowRight, Sparkles, TrendingUp, Target, Users, Zap, CheckCircle, Star, Globe, FileText, Lightbulb, BarChart3, BookOpen, Home, Megaphone, Bookmark, User, Search, Bell, ChevronDown, Crown, LogOut, RefreshCw, Settings, HelpCircle, CreditCard, BarChart, PieChart, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -98,33 +98,50 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-16 lg:h-18">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <span className="text-xl font-bold">
+            <button 
+              onClick={() => {
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth'
+                });
+              }}
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+            >
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">G</span>
+              </div>
+              <span className="text-xl lg:text-2xl font-bold">
                 <span className="text-purple-600">GOLD</span>
-                <span className="text-black">MINES</span>
+                <span className="text-gray-900">MINES</span>
               </span>
-            </div>
+            </button>
             
             {/* Desktop Menu */}
-            <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
-              <Link href="#features" className="text-black hover:text-gray-700 transition-colors font-bold text-base flex items-center space-x-1">
+            <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
+              <Link href="#features" className="text-gray-800 hover:text-purple-600 transition-all duration-200 font-semibold text-sm lg:text-base px-3 lg:px-4 py-2 rounded-lg hover:bg-purple-50 flex items-center space-x-1 relative group">
                 <span>Product</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 transition-transform duration-200 group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
+                <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-purple-600 transform scale-x-0 transition-transform duration-200 group-hover:scale-x-100"></span>
               </Link>
-              <Link href="#pricing" className="text-black hover:text-gray-700 transition-colors font-bold text-base">
+              <Link href="#pricing" className="text-gray-800 hover:text-purple-600 transition-all duration-200 font-semibold text-sm lg:text-base px-3 lg:px-4 py-2 rounded-lg hover:bg-purple-50 relative group">
                 Pricing
+                <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-purple-600 transform scale-x-0 transition-transform duration-200 group-hover:scale-x-100"></span>
               </Link>
-              <Link href="/login" className="bg-white text-black px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200 font-bold text-base">
+            </div>
+            
+            {/* Desktop Auth Buttons */}
+            <div className="hidden md:flex items-center space-x-3">
+              <Link href="/login" className="text-gray-700 hover:text-gray-900 transition-colors font-medium text-sm lg:text-base px-4 py-2 rounded-lg hover:bg-gray-50">
                 Log in
               </Link>
-              <Link href="/signup" className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 font-bold text-base">
-                Signup
+              <Link href="/signup" className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 lg:px-6 py-2 lg:py-2.5 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium text-sm lg:text-base shadow-sm hover:shadow-md">
+                Get Started
               </Link>
             </div>
             
@@ -132,7 +149,7 @@ export default function LandingPage() {
             <div className="md:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-gray-700 hover:text-gray-900 p-2"
+                className="text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -143,20 +160,24 @@ export default function LandingPage() {
           
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden border-t border-gray-100 bg-white">
-              <div className="px-4 py-4 space-y-4">
-                <Link href="#features" className="block text-black hover:text-gray-700 transition-colors font-bold text-base py-2">
+            <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur-md">
+              <div className="px-4 py-6 space-y-1">
+                <Link href="#features" className="block text-gray-800 hover:text-purple-600 transition-all duration-200 font-semibold text-base py-3 px-3 rounded-lg hover:bg-purple-50 relative group">
                   Product
+                  <span className="absolute left-3 right-3 bottom-1 h-0.5 bg-purple-600 transform scale-x-0 transition-transform duration-200 group-hover:scale-x-100"></span>
                 </Link>
-                <Link href="#pricing" className="block text-black hover:text-gray-700 transition-colors font-bold text-base py-2">
+                <Link href="#pricing" className="block text-gray-800 hover:text-purple-600 transition-all duration-200 font-semibold text-base py-3 px-3 rounded-lg hover:bg-purple-50 relative group">
                   Pricing
+                  <span className="absolute left-3 right-3 bottom-1 h-0.5 bg-purple-600 transform scale-x-0 transition-transform duration-200 group-hover:scale-x-100"></span>
                 </Link>
-                <Link href="/login" className="block bg-white text-black px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200 font-bold text-base text-center">
-                  Log in
-                </Link>
-                <Link href="/signup" className="block bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-200 font-bold text-base text-center">
-                  Signup
-                </Link>
+                <div className="border-t border-gray-200 pt-4 mt-4 space-y-3">
+                  <Link href="/login" className="block text-gray-700 hover:text-gray-900 transition-colors font-medium text-base py-3 px-3 rounded-lg hover:bg-gray-50 text-center">
+                    Log in
+                  </Link>
+                  <Link href="/signup" className="block bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium text-base text-center shadow-sm">
+                    Get Started
+                  </Link>
+                </div>
               </div>
             </div>
           )}
@@ -164,7 +185,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative bg-white pt-56 pb-32 overflow-hidden">
+      <section className="relative bg-white pt-56 pb-16 overflow-hidden">
         {/* Background decorative elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full opacity-20 blur-3xl"></div>
@@ -200,8 +221,8 @@ export default function LandingPage() {
       </section>
 
       {/* Dashboard Preview Section */}
-      <section className="pt-4 pb-8 lg:pt-6 lg:pb-12 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      <section className="pt-0 pb-8 lg:pt-2 lg:pb-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           {/* Preview Card */}
           <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
             {/* App Header */}
@@ -223,24 +244,25 @@ export default function LandingPage() {
             
             <div className="flex flex-col lg:flex-row">
               {/* Left Sidebar */}
-              <div className="w-full lg:w-64 bg-gray-50 p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-gray-200">
-                <div className="space-y-4 lg:space-y-6">
+              <div className="w-full lg:w-64 bg-gray-50 p-4 lg:p-6 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col">
+                {/* Navigation Menu */}
+                <div className="flex-1">
                   <div className="space-y-2 lg:space-y-3">
                     <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
                       <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <BarChart3 className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                        <Home className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
                       </div>
                       <span className="text-xs lg:text-sm font-medium">Dashboard</span>
                     </div>
-                    <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
-                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <Lightbulb className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                    <div className="flex items-center space-x-3 text-purple-600 bg-purple-50 border border-purple-200 cursor-pointer p-2 lg:p-3 rounded-xl transition-all duration-200">
+                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <Lightbulb className="w-3 h-3 lg:w-4 lg:h-4 text-purple-600" />
                       </div>
                       <span className="text-xs lg:text-sm font-medium">Business Ideas</span>
                     </div>
                     <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
                       <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                        <Megaphone className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
                       </div>
                       <span className="text-xs lg:text-sm font-medium">Marketing Ideas</span>
                     </div>
@@ -250,93 +272,406 @@ export default function LandingPage() {
                       </div>
                       <span className="text-xs lg:text-sm font-medium">Case Studies</span>
                     </div>
+                    <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
+                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <Bookmark className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                      </div>
+                      <span className="text-xs lg:text-sm font-medium">Saved Ideas</span>
+                    </div>
+                    <div className="flex items-center space-x-3 text-gray-600 hover:text-gray-900 cursor-pointer p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200">
+                      <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <User className="w-3 h-3 lg:w-4 lg:h-4 text-gray-600" />
+                      </div>
+                      <span className="text-xs lg:text-sm font-medium">Account</span>
+                    </div>
                   </div>
+                </div>
+
+                {/* User Profile Section */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="flex items-center space-x-3 p-2 lg:p-3 rounded-xl hover:bg-white transition-all duration-200 cursor-pointer">
+                    <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      JD
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs lg:text-sm font-medium text-gray-900 truncate">John Doe</div>
+                      <div className="text-xs text-gray-500 truncate">Free Plan</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Upgrade CTA */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <button className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2 lg:py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200">
+                    <Crown className="w-4 h-4" />
+                    <span className="text-xs lg:text-sm">Upgrade to Pro</span>
+                  </button>
                 </div>
               </div>
               
-              {/* Main Content */}
-              <div className="flex-1 bg-white p-4 lg:p-8">
-                <div className="mb-6 lg:mb-8">
-                  <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-4 lg:mb-6">Recent Ideas</h1>
-                  
-                  {/* Search Bar */}
-                  <div className="mb-4 lg:mb-6">
-                    <div className="relative w-full max-w-md">
+              {/* Main Content - Business Ideas Table */}
+              <div className="flex-1 bg-white flex flex-col">
+                {/* Top Header Bar */}
+                <div className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 flex items-center justify-between">
+                  {/* Mobile Menu Button and Search Bar */}
+                  <div className="flex items-center space-x-4 flex-1">
+                    {/* Mobile Menu Button */}
+                    <button 
+                      className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+                      aria-label="Open mobile menu"
+                      title="Open mobile menu"
+                    >
+                      <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                    
+                    {/* Search Bar */}
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input 
                         type="text" 
-                        placeholder="Search ideas..." 
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 lg:px-4 py-2 lg:py-3 pl-10 lg:pl-12 text-sm lg:text-base text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Search ideas, strategies, case studies..." 
+                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                       />
-                      <div className="absolute left-3 lg:left-4 top-2.5 lg:top-3.5">
-                        <svg className="w-4 h-4 lg:w-5 lg:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                    </div>
+                  </div>
+
+                  {/* Right side: Actions, Notifications & User Profile */}
+                  <div className="flex items-center space-x-4">
+                    {/* Generate New Ideas Button */}
+                    <button className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200">
+                      <RefreshCw className="w-4 h-4" />
+                      <span className="text-sm">Generate</span>
+                    </button>
+                    
+                    {/* Notifications */}
+                    <div className="relative">
+                      <Bell className="w-6 h-6 text-gray-600 hover:text-gray-900 cursor-pointer transition-colors" />
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">3</span>
+                    </div>
+                    
+                    {/* User Profile Dropdown */}
+                    <div className="relative">
+                      <button className="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100">
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                          JD
+                        </div>
+                        <ChevronDown className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 p-4 lg:p-8">
+                  {/* Page Header */}
+                  <div className="mb-6 lg:mb-8">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 lg:mb-6">
+                      <div>
+                        <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-2">Business Ideas</h1>
+                        <p className="text-gray-600">Discover and manage AI-generated business opportunities</p>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-3 mt-4 lg:mt-0">
+                        <button className="flex items-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-600 font-medium transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                          </svg>
+                          <span className="text-sm">Filter</span>
+                        </button>
+                        <button className="flex items-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-600 font-medium transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                          </svg>
+                          <span className="text-sm">Sort</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">Today's Ideas</h3>
+                          <div className="flex items-center mt-2">
+                            <span className="text-2xl lg:text-3xl font-bold text-gray-900">12</span>
+                            <span className="text-sm font-semibold text-green-600 flex items-center ml-2">
+                              <ArrowUp className="w-4 h-4 mr-1" />
+                              +3
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                          <Lightbulb className="w-6 h-6 text-green-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">Total Ideas</h3>
+                          <div className="flex items-center mt-2">
+                            <span className="text-2xl lg:text-3xl font-bold text-gray-900">1,247</span>
+                            <span className="text-sm font-semibold text-blue-600 flex items-center ml-2">
+                              <ArrowUp className="w-4 h-4 mr-1" />
+                              +47
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                          <BarChart3 className="w-6 h-6 text-blue-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">Saved Ideas</h3>
+                          <div className="flex items-center mt-2">
+                            <span className="text-2xl lg:text-3xl font-bold text-gray-900">89</span>
+                            <span className="text-sm font-semibold text-purple-600 flex items-center ml-2">
+                              <ArrowUp className="w-4 h-4 mr-1" />
+                              +12
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                          <Bookmark className="w-6 h-6 text-purple-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">Case Studies</h3>
+                          <div className="flex items-center mt-2">
+                            <span className="text-2xl lg:text-3xl font-bold text-gray-900">23</span>
+                            <span className="text-sm font-semibold text-orange-600 flex items-center ml-2">
+                              <ArrowUp className="w-4 h-4 mr-1" />
+                              +2
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                          <FileText className="w-6 h-6 text-orange-600" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                
+                {/* Data Table */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  {/* Table Header */}
+                  <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="col-span-5">Ideas</div>
+                      <div className="col-span-2">Category</div>
+                      <div className="col-span-2">Market Size</div>
+                      <div className="col-span-2">Date</div>
+                      <div className="col-span-1">Save</div>
+                    </div>
+                  </div>
+                  
+                  {/* Table Body */}
+                  <div className="divide-y divide-gray-100">
+                    {/* Row 1 */}
+                    <div className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                      <div className="grid grid-cols-12 gap-4 items-center">
+                        <div className="col-span-5">
+                          <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                            AI-powered meal planning app for busy professionals
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Lightbulb className="w-4 h-4 text-blue-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                              SaaS
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Target className="w-4 h-4 text-green-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-green-50 text-green-700 border-green-200">
+                              $2.1B
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-sm text-gray-500">{new Date().toLocaleDateString('en-GB')}</span>
+                        </div>
+                        <div className="col-span-1">
+                          <button 
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label="Bookmark business idea"
+                            title="Bookmark business idea"
+                          >
+                            <svg className="w-4 h-4 text-gray-400 hover:text-purple-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Row 2 */}
+                    <div className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                      <div className="grid grid-cols-12 gap-4 items-center">
+                        <div className="col-span-5">
+                          <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                            On-demand tutoring platform with AI matching
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <BookOpen className="w-4 h-4 text-purple-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-purple-50 text-purple-700 border-purple-200">
+                              EdTech
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Target className="w-4 h-4 text-yellow-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-yellow-50 text-yellow-700 border-yellow-200">
+                              $500M
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-sm text-gray-500">{new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}</span>
+                        </div>
+                        <div className="col-span-1">
+                          <button 
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label="Remove bookmark"
+                            title="Remove bookmark"
+                          >
+                            <svg className="w-4 h-4 text-purple-600 fill-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Row 3 */}
+                    <div className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                      <div className="grid grid-cols-12 gap-4 items-center">
+                        <div className="col-span-5">
+                          <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                            Sustainable packaging marketplace for e-commerce
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Lightbulb className="w-4 h-4 text-green-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-green-50 text-green-700 border-green-200">
+                              GreenTech
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Target className="w-4 h-4 text-blue-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                              $150M
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-sm text-gray-500">{new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}</span>
+                        </div>
+                        <div className="col-span-1">
+                          <button 
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label="Bookmark business idea"
+                            title="Bookmark business idea"
+                          >
+                            <svg className="w-4 h-4 text-gray-400 hover:text-purple-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Row 4 */}
+                    <div className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                      <div className="grid grid-cols-12 gap-4 items-center">
+                        <div className="col-span-5">
+                          <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                            Mental health chatbot for remote workers
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Lightbulb className="w-4 h-4 text-red-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-red-50 text-red-700 border-red-200">
+                              HealthTech
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Target className="w-4 h-4 text-green-600" />
+                            <span className="px-2 py-1 text-xs font-medium rounded-full border bg-green-50 text-green-700 border-green-200">
+                              $800M
+                            </span>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-sm text-gray-500">{new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}</span>
+                        </div>
+                        <div className="col-span-1">
+                          <button 
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label="Bookmark business idea"
+                            title="Bookmark business idea"
+                          >
+                            <svg className="w-4 h-4 text-gray-400 hover:text-purple-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Table Footer */}
+                  <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-500">
+                        Showing 4 of 1,247 business ideas
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                          Previous
+                        </button>
+                        <button className="px-3 py-1 text-sm bg-purple-600 text-white rounded-lg">
+                          1
+                        </button>
+                        <button className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                          2
+                        </button>
+                        <button className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                          3
+                        </button>
+                        <button className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                          Next
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
-                
-                {/* Sample Cards */}
-                <div className="grid gap-4 lg:gap-6">
-                  {/* Business Idea Card */}
-                  <div className="bg-gray-50 p-4 lg:p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 lg:mb-4 space-y-2 sm:space-y-0">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <Lightbulb className="w-4 h-4 lg:w-6 lg:h-6 text-gray-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-base lg:text-lg font-semibold text-gray-900">On-demand tutoring platform</h3>
-                          <p className="text-xs lg:text-sm text-gray-700 font-medium">Business Idea</p>
-                        </div>
-                      </div>
-                      <span className="bg-gray-200 text-gray-700 text-xs px-2 lg:px-3 py-1 rounded-full font-medium self-start sm:self-auto">New</span>
-                    </div>
-                    <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
-                      Connect students with qualified tutors instantly through an AI-powered matching system. 
-                      Features include video calls, progress tracking, and flexible scheduling.
-                    </p>
-                  </div>
-                  
-                  {/* Marketing Strategy Card */}
-                  <div className="bg-gray-50 p-4 lg:p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 lg:mb-4 space-y-2 sm:space-y-0">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <TrendingUp className="w-4 h-4 lg:w-6 lg:h-6 text-gray-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-base lg:text-lg font-semibold text-gray-900">Viral TikTok campaign</h3>
-                          <p className="text-xs lg:text-sm text-gray-700 font-medium">Marketing Strategy</p>
-                        </div>
-                      </div>
-                      <span className="bg-gray-200 text-gray-700 text-xs px-2 lg:px-3 py-1 rounded-full font-medium self-start sm:self-auto">Trending</span>
-                    </div>
-                    <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
-                      Create engaging short-form content that leverages trending hashtags and challenges. 
-                      Focus on authentic storytelling and user-generated content to drive organic reach.
-                    </p>
-                  </div>
-                  
-                  {/* Case Study Card */}
-                  <div className="bg-gray-50 p-4 lg:p-6 rounded-2xl border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 lg:mb-4 space-y-2 sm:space-y-0">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <FileText className="w-4 h-4 lg:w-6 lg:h-6 text-gray-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-base lg:text-lg font-semibold text-gray-900">Airbnb's growth story</h3>
-                          <p className="text-xs lg:text-sm text-gray-700 font-medium">Case Study</p>
-                        </div>
-                      </div>
-                      <span className="bg-gray-200 text-gray-700 text-xs px-2 lg:px-3 py-1 rounded-full font-medium self-start sm:self-auto">Featured</span>
-                    </div>
-                    <p className="text-gray-600 text-xs lg:text-sm leading-relaxed">
-                      How Airbnb transformed the hospitality industry by leveraging the sharing economy, 
-                      building trust through reviews, and creating a global community of hosts and travelers.
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import DataTable from '@/app/components/DataTable';
 import { useUser } from '@/contexts/UserContext';
+import { useNotification } from '@/app/components/NotificationProvider';
 import { useRouter } from 'next/navigation'; // Added useRouter import
 import { supabase } from '@/lib/supabase';
+import { DashboardLayout } from '@/app/components/DashboardLayout';
 import { 
   Home,
   Lightbulb,
@@ -24,19 +26,549 @@ import {
   Crown,
   ExternalLink,
   RefreshCw,
-  LogOut
+  LogOut,
+  Settings,
+  Camera,
+  Lock
 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'business-ideas' | 'marketing-ideas' | 'case-studies' | 'saved-ideas' | 'account';
+type TabType = 'dashboard' | 'business-ideas' | 'marketing-ideas' | 'case-studies' | 'saved-ideas' | 'settings';
+type SettingsTabType = 'profile' | 'password' | 'notification' | 'billing';
+
+const countryOptions = [
+  { value: 'us', label: 'United States' },
+  { value: 'ca', label: 'Canada' },
+  { value: 'uk', label: 'United Kingdom' },
+  { value: 'au', label: 'Australia' },
+  { value: 'de', label: 'Germany' },
+  { value: 'fr', label: 'France' },
+  { value: 'jp', label: 'Japan' },
+  { value: 'in', label: 'India' },
+  { value: 'br', label: 'Brazil' },
+  { value: 'mx', label: 'Mexico' },
+];
+
+// Settings Content Component
+function SettingsContent() {
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTabType>('profile');
+  const [loading, setLoading] = useState(false);
+  
+  // Profile form state
+  const [profileData, setProfileData] = useState({
+    firstName: 'Martin',
+    lastName: 'Janiter',
+    email: 'j.martin@gmail.com',
+    bio: '',
+    username: 'martin.janiter',
+    website: 'postcrafts.co',
+    jobTitle: 'Software Developer',
+    showOnProfile: true,
+    country: 'us'
+  });
+
+  const handleProfileChange = (field: string, value: string | boolean) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log('Profile updated:', profileData);
+    setLoading(false);
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log('Password updated');
+    setLoading(false);
+  };
+
+  const settingsTabs = [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'password', label: 'Password', icon: Lock },
+    { id: 'notification', label: 'Notification', icon: Bell },
+    { id: 'billing', label: 'Billing', icon: Settings },
+  ] as const;
+
+  const renderProfileTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Profile</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Manage your personal information and preferences.
+        </p>
+      </div>
+
+      <form onSubmit={handleProfileSubmit} className="space-y-6">
+        {/* Profile Photo Section */}
+        <div className="flex items-center space-x-6">
+          <div className="flex-shrink-0">
+            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+              <User className="w-10 h-10 text-gray-400" />
+            </div>
+          </div>
+          <div className="flex space-x-3">
+            <button type="button" className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+              <Camera className="w-4 h-4 mr-2 inline" />
+              Update
+            </button>
+            <button type="button" className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+              Remove
+            </button>
+          </div>
+        </div>
+
+        {/* Form Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">First Name</label>
+            <input
+              type="text"
+              value={profileData.firstName}
+              onChange={(e) => handleProfileChange('firstName', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+              placeholder="Enter first name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Last Name</label>
+            <input
+              type="text"
+              value={profileData.lastName}
+              onChange={(e) => handleProfileChange('lastName', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+              placeholder="Enter last name"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Email Address</label>
+          <input
+            type="email"
+            value={profileData.email}
+            onChange={(e) => handleProfileChange('email', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+            placeholder="Enter email address"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Write Your Bio</label>
+          <textarea
+            value={profileData.bio}
+            onChange={(e) => handleProfileChange('bio', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200 resize-none"
+            placeholder="Write about you"
+            rows={4}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Username</label>
+            <p className="text-xs text-gray-500">You can change it later</p>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 text-sm">rareblocks.co/user/</span>
+              </div>
+              <input
+                type="text"
+                value={profileData.username}
+                onChange={(e) => handleProfileChange('username', e.target.value)}
+                className="w-full pl-32 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+                placeholder="Enter username"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Website</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 text-sm">https://</span>
+              </div>
+              <input
+                type="text"
+                value={profileData.website}
+                onChange={(e) => handleProfileChange('website', e.target.value)}
+                className="w-full pl-16 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+                placeholder="Enter website"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Job Title</label>
+            <input
+              type="text"
+              value={profileData.jobTitle}
+              onChange={(e) => handleProfileChange('jobTitle', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+              placeholder="Enter job title"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Country</label>
+            <select
+              value={profileData.country}
+              onChange={(e) => handleProfileChange('country', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+            >
+              {countryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-start">
+          <div className="flex items-center h-5">
+            <input
+              type="checkbox"
+              checked={profileData.showOnProfile}
+              onChange={(e) => handleProfileChange('showOnProfile', e.target.checked)}
+              className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+            />
+          </div>
+          <div className="ml-3 text-sm">
+            <label className="text-gray-700 cursor-pointer">
+              Show this on my profile
+            </label>
+          </div>
+        </div>
+
+        <div className="pt-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors duration-200 font-medium"
+          >
+            {loading ? 'Updating...' : 'Update Profile'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  const renderPasswordTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Password</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Update your password to keep your account secure.
+        </p>
+      </div>
+
+      <form onSubmit={handlePasswordSubmit} className="space-y-6 max-w-md">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Current Password</label>
+          <input
+            type="password"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+            placeholder="Enter current password"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">New Password</label>
+          <input
+            type="password"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+            placeholder="Enter new password"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+          <input
+            type="password"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+            placeholder="Confirm new password"
+            required
+          />
+        </div>
+
+        <div className="pt-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors duration-200 font-medium"
+          >
+            {loading ? 'Updating...' : 'Update Password'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  const renderNotificationTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Notifications</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Manage your notification preferences.
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900">Email Notifications</h3>
+          <div className="space-y-3">
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input type="checkbox" defaultChecked className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+              </div>
+              <div className="ml-3 text-sm">
+                <label className="text-gray-700">New business ideas</label>
+              </div>
+            </div>
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input type="checkbox" defaultChecked className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+              </div>
+              <div className="ml-3 text-sm">
+                <label className="text-gray-700">Marketing insights</label>
+              </div>
+            </div>
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input type="checkbox" className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+              </div>
+              <div className="ml-3 text-sm">
+                <label className="text-gray-700">Account updates</label>
+              </div>
+            </div>
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input type="checkbox" defaultChecked className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+              </div>
+              <div className="ml-3 text-sm">
+                <label className="text-gray-700">Weekly reports</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900">Push Notifications</h3>
+          <div className="space-y-3">
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input type="checkbox" className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+              </div>
+              <div className="ml-3 text-sm">
+                <label className="text-gray-700">Browser notifications</label>
+              </div>
+            </div>
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input type="checkbox" defaultChecked className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+              </div>
+              <div className="ml-3 text-sm">
+                <label className="text-gray-700">Mobile notifications</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-4">
+          <button className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium">
+            Save Preferences
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderBillingTab = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Billing Details</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Manage your subscription and payment information.
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        {/* Subscription Plan */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Subscription Plan</h3>
+              <p className="text-sm text-gray-600">Pro Plan - Monthly</p>
+            </div>
+            <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium">
+              Cancel Subscription
+            </button>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-gray-600">
+              Your next payment is $20.00 USD, to be charged on January 15, 2024
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Your payment will be automatically renewed each month
+            </p>
+          </div>
+        </div>
+
+        {/* Payment Method */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Payment Method</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Choose your preferred payment method for making future payments
+          </p>
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-purple-50">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-5 bg-blue-600 rounded flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">VISA</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Visa ending 4331</p>
+                  <p className="text-xs text-gray-500">Expiry 09/2024</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-purple-600 font-medium">Primary Card</span>
+                <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors">
+                  Edit
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <button className="mt-4 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
+            + Add New Payment Method
+          </button>
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Recent Transactions</h3>
+            <div className="flex items-center space-x-3">
+              <select className="px-3 py-1 border border-gray-300 rounded text-sm">
+                <option>Sort by: Recent</option>
+                <option>Sort by: Amount</option>
+                <option>Sort by: Date</option>
+              </select>
+              <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium">
+                Export to CSV
+              </button>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 text-sm font-medium text-gray-700">Invoice</th>
+                  <th className="text-left py-2 text-sm font-medium text-gray-700">Date</th>
+                  <th className="text-left py-2 text-sm font-medium text-gray-700">Amount</th>
+                  <th className="text-left py-2 text-sm font-medium text-gray-700">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                <tr>
+                  <td className="py-3 text-sm text-gray-900">Pro Plan - Dec 2023</td>
+                  <td className="py-3 text-sm text-gray-600">15 December, 2023</td>
+                  <td className="py-3 text-sm text-gray-900">$20.00</td>
+                  <td className="py-3 text-sm">
+                    <span className="inline-flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Complete
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-3 text-sm text-gray-900">Pro Plan - Nov 2023</td>
+                  <td className="py-3 text-sm text-gray-600">15 November, 2023</td>
+                  <td className="py-3 text-sm text-gray-900">$20.00</td>
+                  <td className="py-3 text-sm">
+                    <span className="inline-flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Complete
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettingsTabContent = () => {
+    switch (activeSettingsTab) {
+      case 'profile':
+        return renderProfileTab();
+      case 'password':
+        return renderPasswordTab();
+      case 'notification':
+        return renderNotificationTab();
+      case 'billing':
+        return renderBillingTab();
+      default:
+        return renderProfileTab();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Settings Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8 overflow-x-auto">
+          {settingsTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSettingsTab(tab.id as SettingsTabType)}
+                className={`
+                  flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap
+                  transition-colors duration-200
+                  ${
+                    activeSettingsTab === tab.id
+                      ? 'border-purple-500 text-purple-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }
+                `}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Settings Tab Content */}
+      {renderSettingsTabContent()}
+    </div>
+  );
+}
 
 interface BusinessIdea {
   id: number;
   business_idea_name: string;
-  reddit_title: string;
-  reddit_author: string;
-  reddit_subreddit: string;
-  reddit_score: number;
-  reddit_comments: number;
   opportunity_points: string[];
   problems_solved: string[];
   target_customers: string[];
@@ -46,12 +578,29 @@ interface BusinessIdea {
   marketing_strategy: string[];
   full_analysis: string;
   created_at: string;
-  reddit_created_utc: number; // Added for Reddit post date
-  reddit_url: string; // Added for Reddit post URL
+  
+  // Premium fields
+  problem_story?: string;
+  solution_vision?: string;
+  revenue_model?: string[];
+  competitive_advantage?: string[];
+  next_steps?: string[];
+  
+  // Reddit data (nested object)
+  reddit_posts?: {
+    reddit_title: string;
+    reddit_author: string;
+    reddit_subreddit: string;
+    reddit_score: number;
+    reddit_comments: number;
+    reddit_url: string;
+    reddit_permalink: string;
+  };
 }
 
 export default function Dashboard() {
   const { user, profile, signOut } = useUser();
+  const { showNotification } = useNotification();
   const router = useRouter(); // Added useRouter hook
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -80,6 +629,26 @@ export default function Dashboard() {
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false); // Add this flag
   const [showMobileMenu, setShowMobileMenu] = useState(false); // Mobile menu state
   const [signingOut, setSigningOut] = useState(false); // Add signing out state
+  const [showBothSidebars, setShowBothSidebars] = useState(false); // Toggle for testing both sidebars
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 50;
+  
+  // Marketing ideas state
+  const [marketingIdeas, setMarketingIdeas] = useState<any[]>([]);
+  const [marketingLoading, setMarketingLoading] = useState(false);
+  const [marketingError, setMarketingError] = useState<string | null>(null);
+  const [marketingBookmarked, setMarketingBookmarked] = useState<Set<number>>(new Set());
+  const [generatingMarketingIdea, setGeneratingMarketingIdea] = useState(false);
+  
+  // Marketing pagination state
+  const [marketingCurrentPage, setMarketingCurrentPage] = useState(1);
+  const [marketingTotalPages, setMarketingTotalPages] = useState(1);
+  const [marketingTotalCount, setMarketingTotalCount] = useState(0);
+  const marketingItemsPerPage = 50;
 
   const handleSignOut = async () => {
     console.log('🚪 Sign out button clicked');
@@ -118,6 +687,12 @@ export default function Dashboard() {
     }
   }, [activeTab]);
 
+  // Fetch saved bookmarks when user changes
+  useEffect(() => {
+    fetchSavedBookmarks();
+    fetchSavedMarketingBookmarks();
+  }, [user?.id]);
+
   // Fetch business ideas when the business ideas tab is active - only once
   useEffect(() => {
     if (activeTab === 'business-ideas' && !hasAttemptedFetch && !loading) {
@@ -126,17 +701,40 @@ export default function Dashboard() {
     }
   }, [activeTab, hasAttemptedFetch, loading]);
 
-  const fetchBusinessIdeas = async () => {
+  // Fetch business ideas when page changes
+  useEffect(() => {
+    if (activeTab === 'business-ideas' && hasAttemptedFetch && !generatingIdea) {
+      fetchBusinessIdeas(currentPage);
+    }
+  }, [currentPage, generatingIdea]);
+
+  // Fetch marketing ideas when marketing tab is active
+  useEffect(() => {
+    if (activeTab === 'marketing-ideas' && marketingIdeas.length === 0 && !marketingLoading) {
+      fetchMarketingIdeas();
+    }
+  }, [activeTab]);
+
+  // Fetch marketing ideas when page changes
+  useEffect(() => {
+    if (activeTab === 'marketing-ideas' && marketingIdeas.length > 0) {
+      fetchMarketingIdeas(marketingCurrentPage);
+    }
+  }, [marketingCurrentPage]);
+
+  const fetchBusinessIdeas = async (page: number = currentPage) => {
     setLoading(true);
     setError(null);
     
     try {
-      const response = await fetch('/api/business-ideas');
+      const response = await fetch(`/api/business-ideas?page=${page}&limit=${itemsPerPage}`);
       const data = await response.json();
       
       if (data.success) {
         setBusinessIdeas(data.business_ideas || []);
-        console.log('✅ Business ideas fetched:', data.business_ideas?.length || 0);
+        setTotalCount(data.count || 0);
+        setTotalPages(Math.ceil((data.count || 0) / itemsPerPage));
+        console.log('✅ Business ideas fetched:', data.business_ideas?.length || 0, 'of', data.count || 0);
       } else {
         setError(data.message || 'Failed to fetch business ideas');
         console.error('❌ API error:', data.message);
@@ -146,6 +744,34 @@ export default function Dashboard() {
       console.error('❌ Fetch error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMarketingIdeas = async (page: number = marketingCurrentPage) => {
+    setMarketingLoading(true);
+    setMarketingError(null);
+    
+    try {
+      const response = await fetch(`/api/marketing-ideas?page=${page}&limit=${marketingItemsPerPage}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setMarketingIdeas(data.marketing_ideas || []);
+        setMarketingTotalCount(data.count || 0);
+        setMarketingTotalPages(Math.ceil((data.count || 0) / marketingItemsPerPage));
+        console.log('✅ Marketing ideas fetched:', data.marketing_ideas?.length || 0, 'of', data.count || 0);
+        
+        // Fetch saved bookmarks after loading marketing ideas
+        await fetchSavedMarketingBookmarks();
+      } else {
+        setMarketingError(data.message || 'Failed to fetch marketing ideas');
+        console.error('❌ Marketing API error:', data.message);
+      }
+    } catch (err) {
+      setMarketingError('Failed to fetch marketing ideas');
+      console.error('❌ Marketing fetch error:', err);
+    } finally {
+      setMarketingLoading(false);
     }
   };
 
@@ -190,16 +816,163 @@ export default function Dashboard() {
     }
   };
 
-  const handleBookmarkToggle = (id: number) => {
+  // Fetch saved bookmarks
+  const fetchSavedBookmarks = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch(`/api/saved?user_id=${user.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const businessSavedIds = data.saved_items
+          .filter((item: any) => item.item_type === 'business')
+          .map((item: any) => item.id);
+        setBookmarkedIdeas(new Set(businessSavedIds));
+      }
+    } catch (err) {
+      console.error('Error fetching saved bookmarks:', err);
+    }
+  };
+
+  const fetchSavedMarketingBookmarks = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch(`/api/saved?user_id=${user.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const marketingSavedIds = data.saved_items
+          .filter((item: any) => item.item_type === 'marketing')
+          .map((item: any) => item.item_id); // Use item_id, not id
+        setMarketingBookmarked(new Set(marketingSavedIds));
+        console.log('🔖 Loaded marketing bookmarks:', marketingSavedIds);
+      }
+    } catch (err) {
+      console.error('Error fetching saved marketing bookmarks:', err);
+    }
+  };
+
+  const handleBookmarkToggle = async (id: number) => {
+    if (!user?.id) {
+      showNotification('Please log in to save bookmarks', 'error');
+      return;
+    }
+    
+    const isBookmarked = bookmarkedIdeas.has(id);
+    
+    try {
+      const response = await fetch('/api/saved', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          item_type: 'business',
+          item_id: id,
+          action: isBookmarked ? 'remove' : 'save'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Show notification BEFORE updating state
+        if (isBookmarked) {
+          showNotification('Bookmark removed successfully!', 'success');
+        } else {
+          showNotification('Bookmark saved successfully!', 'success');
+        }
+        
+        // Update state after showing notification
     setBookmarkedIdeas(prev => {
       const newSet = new Set(prev);
+          if (isBookmarked) {
       if (newSet.has(id)) {
         newSet.delete(id);
+            }
       } else {
+            if (!newSet.has(id)) {
         newSet.add(id);
+            }
       }
       return newSet;
     });
+      } else {
+        showNotification(data.message || 'Failed to save bookmark', 'error');
+      }
+    } catch (err) {
+      console.error('Error toggling bookmark:', err);
+      showNotification('Failed to save bookmark. Please try again.', 'error');
+    }
+  };
+
+  const handleMarketingBookmarkToggle = async (id: number) => {
+    if (!user?.id) {
+      showNotification('Please log in to save bookmarks', 'error');
+      return;
+    }
+    
+    const isBookmarked = marketingBookmarked.has(id);
+    
+    try {
+      const response = await fetch('/api/saved', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          item_type: 'marketing',
+          item_id: id,
+          action: isBookmarked ? 'remove' : 'save'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Show notification BEFORE updating state
+        if (isBookmarked) {
+          showNotification('Marketing idea bookmark removed successfully!', 'success');
+        } else {
+          showNotification('Marketing idea saved successfully!', 'success');
+        }
+        
+        // Update state after showing notification
+        setMarketingBookmarked(prev => {
+          const newSet = new Set(prev);
+          if (isBookmarked) {
+            if (newSet.has(id)) {
+              newSet.delete(id);
+            }
+          } else {
+            if (!newSet.has(id)) {
+              newSet.add(id);
+            }
+          }
+          return newSet;
+        });
+      } else if (data.message === 'Item already saved') {
+        // Item is already saved, update UI to show it as bookmarked
+        console.log('🔖 Item already saved, updating UI to show as bookmarked');
+        setMarketingBookmarked(prev => {
+          const newSet = new Set(prev);
+          if (!newSet.has(id)) {
+            newSet.add(id);
+          }
+          return newSet;
+        });
+        showNotification('Marketing idea is already in your collection', 'info');
+      } else {
+        showNotification(data.message || 'Failed to save bookmark', 'error');
+      }
+    } catch (err) {
+      console.error('Error toggling marketing bookmark:', err);
+      showNotification('Failed to save bookmark. Please try again.', 'error');
+    }
   };
 
   const handleViewDetails = (item: any) => {
@@ -208,6 +981,44 @@ export default function Dashboard() {
     if (idea) {
       setSelectedIdea(idea);
       setShowIdeaModal(true);
+    }
+  };
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Marketing pagination handlers
+  const handleMarketingPageChange = (page: number) => {
+    if (page >= 1 && page <= marketingTotalPages) {
+      setMarketingCurrentPage(page);
+    }
+  };
+
+  const handleMarketingPreviousPage = () => {
+    if (marketingCurrentPage > 1) {
+      setMarketingCurrentPage(marketingCurrentPage - 1);
+    }
+  };
+
+  const handleMarketingNextPage = () => {
+    if (marketingCurrentPage < marketingTotalPages) {
+      setMarketingCurrentPage(marketingCurrentPage + 1);
     }
   };
 
@@ -223,19 +1034,46 @@ export default function Dashboard() {
   };
 
   // Convert business ideas to DataTable format
-  const tableData = businessIdeas.map(idea => ({
+  const tableData = useMemo(() => {
+    return businessIdeas.map(idea => ({
     id: idea.id,
-    title: idea.business_idea_name || idea.reddit_title,
+    title: idea.business_idea_name || idea.reddit_posts?.reddit_title || 'Untitled Business Idea',
     niche: idea.niche || 'Not Specified',
     category: idea.category || 'General',
     market_size: idea.market_size || ['Unknown'],
-    dateGenerated: idea.reddit_created_utc ? new Date(idea.reddit_created_utc * 1000).toISOString() : idea.created_at,
+    dateGenerated: idea.created_at,
     isBookmarked: bookmarkedIdeas.has(idea.id),
-    reddit_score: idea.reddit_score,
-    reddit_comments: idea.reddit_comments
+    reddit_score: idea.reddit_posts?.reddit_score || 0,
+    reddit_comments: idea.reddit_posts?.reddit_comments || 0
   }));
+  }, [businessIdeas, bookmarkedIdeas]);
+
+  // Convert marketing ideas to DataTable format
+  const marketingTableData = useMemo(() => {
+    console.log('🔖 Creating marketing table data...');
+    console.log('🔖 Marketing ideas count:', marketingIdeas.length);
+    console.log('🔖 Marketing bookmarked set:', Array.from(marketingBookmarked));
+    
+    return marketingIdeas.map(idea => {
+      const isBookmarked = marketingBookmarked.has(idea.id);
+      console.log(`🔖 Idea ${idea.id} (${idea.marketing_idea_name}): isBookmarked = ${isBookmarked}`);
+      
+      return {
+        id: idea.id,
+        title: idea.marketing_idea_name || idea.reddit_title || 'Untitled Marketing Idea',
+        niche: 'Marketing Strategy',
+        category: idea.category || 'Marketing',
+        market_size: [idea.potential_impact || 'Unknown'],
+        dateGenerated: idea.created_at,
+        isBookmarked: isBookmarked,
+        reddit_score: idea.reddit_score || 0,
+        reddit_comments: idea.reddit_comments || 0
+      };
+    });
+  }, [marketingIdeas, marketingBookmarked]);
 
   const generateNewIdea = async () => {
+    console.log('🚀 generateNewIdea function called');
     setGeneratingIdea(true);
     try {
       console.log('🚀 Starting to generate new business ideas...');
@@ -257,20 +1095,71 @@ export default function Dashboard() {
       console.log('📡 API response data:', data);
       
       if (data.success) {
-        // Refresh data
-        await fetchBusinessIdeas();
+        console.log('✅ API call successful, refreshing data...');
+        // Refresh data - go to first page to show new ideas
+        setCurrentPage(1);
+        
+        // Wait a bit before showing notification to ensure data is loaded
+        setTimeout(() => {
+          console.log('📢 Showing success notification...');
+          showNotification(`Successfully analyzed and saved ${data.business_ideas_saved || 0} new business ideas!`, 'success');
+        }, 1000);
+        
+        // Fetch data in background
+        await fetchBusinessIdeas(1);
         await fetchDashboardData();
         
-        alert(`Successfully analyzed and saved ${data.count || 0} new business ideas!`);
+        console.log('✅ generateNewIdea completed successfully');
       } else {
-        alert(data.message || 'Failed to generate new business ideas');
+        console.log('❌ API call failed:', data.message);
+        showNotification(data.message || 'Failed to generate new business ideas', 'error');
       }
       
     } catch (err) {
       console.error('❌ Error generating ideas:', err);
-      alert('Failed to generate new business ideas. Please try again.');
+      showNotification('Failed to generate new business ideas. Please try again.', 'error');
     } finally {
+      console.log('🏁 Setting generatingIdea to false');
       setGeneratingIdea(false);
+    }
+  };
+
+  const generateNewMarketingIdea = async () => {
+    setGeneratingMarketingIdea(true);
+    try {
+      console.log('🚀 Starting to generate new marketing ideas...');
+      
+      // Call marketing ideas API endpoint
+      console.log('📡 Making API call to /api/marketing-ideas...');
+      const response = await fetch('/api/marketing-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          action: 'fetch_and_analyze'
+        }),
+      });
+
+      console.log('📡 API response status:', response.status);
+      const data = await response.json();
+      console.log('📡 API response data:', data);
+      
+      if (data.success) {
+        // Refresh marketing ideas data - go to first page to show new ideas
+        setMarketingCurrentPage(1);
+        await fetchMarketingIdeas(1);
+        await fetchDashboardData();
+        
+        showNotification(`Successfully analyzed and saved ${data.marketing_ideas_saved || 0} new marketing ideas!`, 'success');
+      } else {
+        showNotification(data.message || 'Failed to generate new marketing ideas', 'error');
+      }
+    } catch (err) {
+      console.error('❌ Error generating marketing ideas:', err);
+      showNotification('Failed to generate new marketing ideas. Please try again.', 'error');
+    } finally {
+      setGeneratingMarketingIdea(false);
     }
   };
 
@@ -316,7 +1205,7 @@ export default function Dashboard() {
     { id: 'marketing-ideas', label: 'Marketing Ideas', icon: Megaphone, active: activeTab === 'marketing-ideas' },
     { id: 'case-studies', label: 'Case Studies', icon: BookOpen, active: activeTab === 'case-studies' },
     { id: 'saved-ideas', label: 'Saved Ideas', icon: Bookmark, active: activeTab === 'saved-ideas' },
-    { id: 'account', label: 'Account', icon: User, active: activeTab === 'account' }
+    { id: 'settings', label: 'Settings', icon: Settings, active: activeTab === 'settings' }
   ];
 
   const renderContent = () => {
@@ -452,7 +1341,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">New business idea generated</p>
-                        <p className="text-xs text-gray-500">{idea.business_idea_name || idea.reddit_title}</p>
+                        <p className="text-xs text-gray-500">{idea.business_idea_name || idea.reddit_posts?.reddit_title}</p>
                   </div>
                       <span className="text-xs text-gray-400">
                         {new Date(idea.created_at).toLocaleDateString()}
@@ -494,7 +1383,7 @@ export default function Dashboard() {
                 <h2 className="text-2xl font-bold text-red-900 mb-2">Error Loading Ideas</h2>
                 <p className="text-red-600 mb-4">{error}</p>
                 <button 
-                  onClick={fetchBusinessIdeas}
+                  onClick={() => fetchBusinessIdeas()}
                   className="bg-red-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-700 transition-all duration-200"
                 >
                   Try Again
@@ -520,12 +1409,77 @@ export default function Dashboard() {
 
                         {/* Modern DataTable View */}
             {!loading && !error && businessIdeas.length > 0 && (
+              <>
               <DataTable
+                  key={`datatable-${bookmarkedIdeas.size}`}
                 data={tableData}
                 onBookmarkToggle={handleBookmarkToggle}
                 onViewDetails={handleViewDetails}
                 onDelete={handleDelete}
-              />
+                  onLoad={generateNewIdea}
+                  isLoading={generatingIdea}
+                  title="Business Ideas"
+                />
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-gray-600">
+                      Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} business ideas
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      {/* Previous Button */}
+                      <button
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      
+                      {/* Page Numbers */}
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => handlePageChange(pageNum)}
+                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                currentPage === pageNum
+                                  ? 'bg-purple-600 text-white'
+                                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Next Button */}
+                      <button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         );
@@ -533,20 +1487,119 @@ export default function Dashboard() {
       case 'marketing-ideas':
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Marketing Ideas</h1>
-                <p className="text-gray-600">Creative marketing strategies and campaigns</p>
+            {/* Loading State */}
+            {marketingLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                <span className="ml-2 text-gray-600">Loading marketing ideas...</span>
               </div>
-              <button className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200">
-                Generate Strategy
-              </button>
+            )}
+
+            {/* Error State */}
+            {marketingError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
             </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">Error loading marketing ideas</h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      <p>{marketingError}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!marketingLoading && !marketingError && marketingIdeas.length === 0 && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
               <Megaphone className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Marketing Ideas Content</h2>
-              <p className="text-gray-600">This is where your marketing ideas will be displayed.</p>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">No Marketing Ideas Yet</h2>
+                <p className="text-gray-600 mb-6">Generate your first marketing strategy to get started.</p>
+                <button className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200">
+                  Generate Your First Strategy
+                </button>
             </div>
+            )}
+
+            {/* Data Table */}
+            {!marketingLoading && !marketingError && marketingIdeas.length > 0 && (
+              <>
+                <DataTable
+                  key={`marketing-datatable-${marketingBookmarked.size}`}
+                  data={marketingTableData}
+                  onBookmarkToggle={handleMarketingBookmarkToggle}
+                  onViewDetails={handleViewDetails}
+                  onDelete={handleDelete}
+                  title="Marketing Ideas"
+                  onLoad={generateNewMarketingIdea}
+                  isLoading={generatingMarketingIdea}
+                />
+                
+                {/* Pagination */}
+                {marketingTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-gray-600">
+                      Showing {((marketingCurrentPage - 1) * marketingItemsPerPage) + 1} to {Math.min(marketingCurrentPage * marketingItemsPerPage, marketingTotalCount)} of {marketingTotalCount} marketing ideas
+          </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      {/* Previous Button */}
+                      <button
+                        onClick={handleMarketingPreviousPage}
+                        disabled={marketingCurrentPage === 1}
+                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      
+                      {/* Page Numbers */}
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, marketingTotalPages) }, (_, i) => {
+                          let pageNum;
+                          if (marketingTotalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (marketingCurrentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (marketingCurrentPage >= marketingTotalPages - 2) {
+                            pageNum = marketingTotalPages - 4 + i;
+                          } else {
+                            pageNum = marketingCurrentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => handleMarketingPageChange(pageNum)}
+                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                marketingCurrentPage === pageNum
+                                  ? 'bg-purple-600 text-white'
+                                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Next Button */}
+                      <button
+                        onClick={handleMarketingNextPage}
+                        disabled={marketingCurrentPage === marketingTotalPages}
+                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         );
 
@@ -590,17 +1643,17 @@ export default function Dashboard() {
           </div>
         );
 
-      case 'account':
+      case 'settings':
         return (
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
               <p className="text-gray-600">Manage your profile and preferences</p>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-              <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Settings Content</h2>
-              <p className="text-gray-600">This is where your account settings will be displayed.</p>
+            
+            {/* Settings Content */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+              <SettingsContent />
             </div>
           </div>
         );
@@ -612,13 +1665,127 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Menu Overlay */}
-      {showMobileMenu && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onClick={() => setShowMobileMenu(false)} />
+      {/* NEW SIDEBAR - Hidden by default */}
+      {showBothSidebars && (
+        <div className="fixed left-0 top-0 h-full w-64 bg-gray-50 border-r border-gray-200 z-50 flex flex-col">
+          {/* Visual indicator */}
+          <div className="bg-green-500 text-white text-xs px-2 py-1 text-center font-bold">
+            NEW SIDEBAR
+          </div>
+        <div className="p-6 flex-1">
+          {/* Logo */}
+          <div className="flex items-center space-x-2 mb-8">
+            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">G</span>
+            </div>
+            <span className="text-xl font-bold">
+              <span className="text-purple-600">GOLD</span>
+              <span className="text-gray-900">MINES</span>
+            </span>
+          </div>
+
+          {/* Navigation Menu */}
+          <nav className="space-y-6">
+            {/* MAIN Section */}
+            <div>
+              <h3 className="px-3 mb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">MAIN</h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'dashboard'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Home className="w-5 h-5" />
+                  <span>Dashboard</span>
+                </button>
+              </div>
+            </div>
+
+            {/* IDEAS Section */}
+            <div>
+              <h3 className="px-3 mb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">IDEAS</h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setActiveTab('business-ideas')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'business-ideas'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Lightbulb className="w-5 h-5" />
+                  <span>Business Ideas</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('marketing-ideas')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'marketing-ideas'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Megaphone className="w-5 h-5" />
+                  <span>Marketing Ideas</span>
+                  <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
+                    NEW
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('saved-ideas')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'saved-ideas'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Bookmark className="w-5 h-5" />
+                  <span>Saved Ideas</span>
+                  <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-600">
+                    15
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* ACCOUNT Section */}
+            <div>
+              <h3 className="px-3 mb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ACCOUNT</h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'settings'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Settings className="w-5 h-5" />
+                  <span>Settings</span>
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Logout</span>
+                </button>
+                <button className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900">
+                  <Crown className="w-5 h-5" />
+                  <span>Upgrade to Pro</span>
+                </button>
+              </div>
+            </div>
+          </nav>
+        </div>
+        </div>
       )}
 
-      {/* Fixed Sidebar */}
-      <div className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-50 flex flex-col transform transition-transform duration-300 ease-in-out ${
+      {/* OLD SIDEBAR - Active sidebar (always visible) */}
+      <div className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-40 flex flex-col transform transition-transform duration-300 ease-in-out ${
         showMobileMenu ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}>
         <div className="p-6 flex-1">
@@ -718,23 +1885,15 @@ export default function Dashboard() {
              </div>
            </div>
 
-           {/* Right side: Reload Icon, Notifications & User Profile */}
+           {/* Right side: Toggle Button, Notifications & User Profile */}
            <div className="flex items-center space-x-4">
-             {/* Reload Icon for Business Ideas */}
-             {activeTab === 'business-ideas' && (
+             {/* Sidebar Toggle Button */}
                <button 
-                 onClick={generateNewIdea}
-                 disabled={generatingIdea}
-                 className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                 title="Generate New Ideas"
-               >
-                 {generatingIdea ? (
-                   <RefreshCw className="w-5 h-5 animate-spin text-purple-600" />
-                 ) : (
-                   <RefreshCw className="w-5 h-5" />
-                 )}
+               onClick={() => setShowBothSidebars(!showBothSidebars)}
+               className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
+             >
+               {showBothSidebars ? 'Hide New Sidebar' : 'Show New Sidebar (Test)'}
                </button>
-             )}
              
              <div className="relative">
                <Bell className="w-6 h-6 text-gray-600 hover:text-gray-900 cursor-pointer transition-colors" />
@@ -758,11 +1917,26 @@ export default function Dashboard() {
                
                {showUserDropdown && (
                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100">
-                   <button className="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 transition-colors">
-                     Profile
+                   <button 
+                     onClick={() => {
+                       setShowUserDropdown(false);
+                       router.push('/settings');
+                     }}
+                     className="flex items-center space-x-2 w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 transition-colors"
+                   >
+                     <Settings className="w-4 h-4" />
+                     <span>Settings</span>
                    </button>
-                   <button className="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 transition-colors">
-                     Settings
+                   <button 
+                     onClick={() => {
+                       setShowUserDropdown(false);
+                       setSigningOut(true);
+                       signOut();
+                     }}
+                     className="flex items-center space-x-2 w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 transition-colors"
+                   >
+                     <LogOut className="w-4 h-4" />
+                     <span>Sign Out</span>
                    </button>
                  </div>
                )}
@@ -787,174 +1961,261 @@ export default function Dashboard() {
       {/* Business Idea Details Modal */}
       {showIdeaModal && selectedIdea && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowIdeaModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-y-auto border border-gray-200" onClick={(e) => e.stopPropagation()}>
-            {/* Clean Header */}
-            <div className="bg-gray-900 rounded-t-2xl p-6 text-white relative">
-              <div className="flex items-center justify-end">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto border border-gray-200" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-t-2xl p-6 text-white relative">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-white mb-2 leading-tight">
+                    {selectedIdea.business_idea_name || selectedIdea.reddit_posts?.reddit_title}
+                  </h1>
+                  <div className="flex items-center space-x-4 text-white/80 text-sm">
+                    {selectedIdea.category && (
+                      <span className="bg-white/20 px-3 py-1 rounded-full font-medium">
+                        {selectedIdea.category}
+                      </span>
+                    )}
+                    {selectedIdea.niche && (
+                      <span className="bg-white/20 px-3 py-1 rounded-full font-medium">
+                        {selectedIdea.niche}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <button 
                   onClick={() => setShowIdeaModal(false)}
-                  className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105"
+                  className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 ml-4"
                 >
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-              
-              {/* Business Idea Title */}
-              <div className="bg-white/10 rounded-xl p-4 border border-white/20">
-                <h1 className="text-3xl font-bold text-white mb-2 leading-tight">
-                  {selectedIdea.business_idea_name || selectedIdea.reddit_title}
-                </h1>
-                {/* Removed author/subreddit/date row */}
-              </div>
             </div>
 
-            {/* Clean Content */}
-            <div className="p-6 space-y-8">
-				
-				{/* Category & Niche Tags */}
-				<div className="flex flex-wrap gap-3">
-					{selectedIdea.category && (
-						<div className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full">
-							<span className="w-2 h-2 bg-gray-500 rounded-full"></span>
-							<span className="font-semibold text-sm">{selectedIdea.category}</span>
-						</div>
-					)}
-					{selectedIdea.niche && (
-						<div className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full">
-							<span className="w-2 h-2 bg-gray-500 rounded-full"></span>
-							<span className="font-semibold text-sm">{selectedIdea.niche}</span>
-						</div>
-					)}
-				</div>
+            {/* Content */}
+            <div className="p-8 space-y-8">
+              {/* Problem Story */}
+              {selectedIdea.problem_story && (
+                <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-l-4 border-gray-400 rounded-r-xl p-8 shadow-sm">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-4">Problem Story</h3>
+                      <p className="text-gray-700 leading-relaxed text-base">{selectedIdea.problem_story}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-				{/* Two Column Layout for Main Content */}
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-					{/* Left Column */}
-					<div className="space-y-6">
-						{/* Key Opportunities */}
-						{selectedIdea.opportunity_points && selectedIdea.opportunity_points.length > 0 && (
-							<div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-								<div className="flex items-center space-x-2 mb-4">
-									<span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-									<h3 className="text-lg font-bold text-gray-900">Key Opportunities</h3>
-								</div>
-								<div className="space-y-3">
-									{selectedIdea.opportunity_points.map((point, index) => (
-										<div key={index} className="flex items-start space-x-3 p-3 bg-white rounded-lg border border-gray-200">
-											<span className="text-gray-700 font-bold mt-0.5">•</span>
-											<span className="text-gray-700 text-sm leading-relaxed">{point}</span>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
+              {/* Solution Vision */}
+              {selectedIdea.solution_vision && (
+                <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-l-4 border-gray-400 rounded-r-xl p-8 shadow-sm">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-4">Solution Vision</h3>
+                      <p className="text-gray-700 leading-relaxed text-base">{selectedIdea.solution_vision}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-						{/* Target Customers */}
-						{selectedIdea.target_customers && selectedIdea.target_customers.length > 0 && (
-							<div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-								<div className="flex items-center space-x-2 mb-4">
-									<span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-									<h3 className="text-lg font-bold text-gray-900">Target Customers</h3>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									{selectedIdea.target_customers.map((customer, index) => (
-										<span key={index} className="px-3 py-2 bg-white text-gray-700 text-sm rounded-lg border border-gray-200 font-medium">
-											{customer}
-										</span>
-									))}
-								</div>
-							</div>
-						)}
-					</div>
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column */}
+                <div className="space-y-6">
+                  {/* Target Customers */}
+                  {selectedIdea.target_customers && selectedIdea.target_customers.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Target Customers</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {selectedIdea.target_customers.map((customer, index) => (
+                          <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <span className="text-gray-700 leading-relaxed">{customer}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-					{/* Right Column */}
-					<div className="space-y-6">
-						{/* Problems Solved */}
-						{selectedIdea.problems_solved && selectedIdea.problems_solved.length > 0 && (
-							<div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-								<div className="flex items-center space-x-2 mb-4">
-									<span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-									<h3 className="text-lg font-bold text-gray-900">Problems Solved</h3>
-								</div>
-								<div className="space-y-3">
-									{selectedIdea.problems_solved.map((problem, index) => (
-										<div key={index} className="flex items-start space-x-3 p-3 bg-white rounded-lg border border-gray-200">
-											<span className="text-gray-700 font-bold mt-0.5">•</span>
-											<span className="text-gray-700 text-sm leading-relaxed">{problem}</span>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
+                  {/* Revenue Model */}
+                  {selectedIdea.revenue_model && selectedIdea.revenue_model.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Revenue Model</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {selectedIdea.revenue_model.map((model, index) => (
+                          <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <span className="text-gray-700 leading-relaxed">{model}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-						{/* Market Size */}
-						{selectedIdea.market_size && selectedIdea.market_size.length > 0 && (
-							<div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-								<div className="flex items-center space-x-2 mb-4">
-									<span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-									<h3 className="text-lg font-bold text-gray-900">Market Size</h3>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									{selectedIdea.market_size.map((size, index) => (
-										<span key={index} className="px-3 py-2 bg-white text-gray-700 text-sm rounded-lg border border-gray-200 font-medium">
-											{size}
-										</span>
-									))}
-								</div>
-							</div>
-						)}
-					</div>
-				</div>
+                  {/* Market Size */}
+                  {selectedIdea.market_size && selectedIdea.market_size.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Market Size</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {selectedIdea.market_size.map((size, index) => (
+                          <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <span className="text-gray-700 leading-relaxed">{size}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-6">
+                  {/* Niche */}
+                  {selectedIdea.niche && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Niche</h3>
+                      </div>
+                      <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">{selectedIdea.niche}</p>
+                    </div>
+                  )}
+
+                  {/* Category */}
+                  {selectedIdea.category && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Category</h3>
+                      </div>
+                      <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">{selectedIdea.category}</p>
+                    </div>
+                  )}
+
+                  {/* Competitive Advantage */}
+                  {selectedIdea.competitive_advantage && selectedIdea.competitive_advantage.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Competitive Advantage</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {selectedIdea.competitive_advantage.map((advantage, index) => (
+                          <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <span className="text-gray-700 leading-relaxed">{advantage}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Marketing Strategy - Full Width */}
               {selectedIdea.marketing_strategy && selectedIdea.marketing_strategy.length > 0 && (
-                <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">📈</span>
+                <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900">Marketing Strategy</h3>
+                    <h3 className="text-xl font-bold text-gray-900">Marketing Strategy</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedIdea.marketing_strategy.map((strategy, index) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 bg-white rounded-lg border border-gray-200">
-                        <span className="text-gray-700 font-bold mt-0.5">•</span>
-                        <span className="text-gray-700 text-sm leading-relaxed">{strategy}</span>
+                      <div key={index} className="flex items-start space-x-3 p-4 bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg border border-pink-100">
+                        <div className="w-2 h-2 bg-pink-500 rounded-full mt-2 flex-shrink-0"></div>
+                        <span className="text-gray-700 leading-relaxed">{strategy}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-				{/* Reddit Stats Card (moved to bottom) */}
-				<div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-					<h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Reddit Performance</h3>
-					<div className="grid grid-cols-3 gap-4">
-						<div className="text-center">
-							<div className="text-2xl font-bold text-gray-900">{selectedIdea.reddit_score}</div>
-							<span className="text-xs text-gray-500">Upvotes</span>
-						</div>
-						<div className="text-center">
-							<div className="text-2xl font-bold text-gray-900">{selectedIdea.reddit_comments}</div>
-							<span className="text-xs text-gray-500">Comments</span>
-						</div>
-						<div className="text-center">
-							<div className="text-lg font-bold text-gray-900">{new Date(selectedIdea.reddit_created_utc * 1000).toLocaleDateString()}</div>
-							<span className="text-xs text-gray-500">Posted</span>
-						</div>
-					</div>
-				</div>
+              {/* Next Steps - Full Width */}
+              {selectedIdea.next_steps && selectedIdea.next_steps.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900">Next Steps</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedIdea.next_steps.map((step, index) => (
+                      <div key={index} className="flex items-start space-x-3 p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-100">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full mt-2 flex-shrink-0"></div>
+                        <span className="text-gray-700 leading-relaxed">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
 
               {/* Action Footer */}
               <div className="pt-6 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <a 
-                    href={selectedIdea.reddit_url} 
+                    href={selectedIdea.reddit_posts?.reddit_url || '#'} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="inline-flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                    onClick={() => {
+                      console.log('Reddit button clicked:', {
+                        reddit_url: selectedIdea.reddit_posts?.reddit_url,
+                        full_idea: selectedIdea
+                      });
+                    }}
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md"
                   >
                     <span>View Original Reddit Post</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

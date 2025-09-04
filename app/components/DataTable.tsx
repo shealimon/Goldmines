@@ -9,7 +9,8 @@ import {
   Megaphone, 
   BookOpen,
   ChevronDown,
-  Target
+  Target,
+  RefreshCw
 } from 'lucide-react';
 
 interface DataItem {
@@ -29,6 +30,12 @@ interface DataTableProps {
   onBookmarkToggle: (id: number) => void;
   onViewDetails: (item: DataItem) => void;
   onDelete: (id: number) => void;
+  onGenerateNew?: () => void;
+  generateButtonText?: string;
+  isGenerating?: boolean;
+  title?: string;
+  onLoad?: () => void;
+  isLoading?: boolean;
 }
 
 const getCategoryIcon = (category: string) => {
@@ -99,7 +106,7 @@ const getMarketSizeColor = (marketSize: string[] | string | null) => {
   }
 };
 
-export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDelete }: DataTableProps) {
+export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDelete, onGenerateNew, generateButtonText = "Generate New Idea", isGenerating = false, title = "Business Ideas", onLoad, isLoading = false }: DataTableProps) {
   const [sortBy, setSortBy] = useState<'date' | 'saved'>('date');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
@@ -129,10 +136,29 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
              {/* Header */}
        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-         <h2 className="text-xl font-semibold text-gray-900">Business Ideas</h2>
+         <div className="flex items-center space-x-3">
+           <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+           
+           {/* Load Icon Button - positioned after title */}
+           {onLoad && (
+             <button
+               onClick={onLoad}
+               disabled={isLoading}
+               className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+               title="Load New Ideas"
+             >
+               {isLoading ? (
+                 <RefreshCw className="w-5 h-5 animate-spin text-purple-600" />
+               ) : (
+                 <RefreshCw className="w-5 h-5" />
+               )}
+             </button>
+           )}
+         </div>
         
-        {/* Sort Dropdown */}
-        <div className="relative">
+        <div className="flex items-center space-x-3">
+          {/* Sort Dropdown */}
+          <div className="relative">
           <button
             onClick={() => setShowSortDropdown(!showSortDropdown)}
             className="flex items-center space-x-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-600 font-medium transition-colors"
@@ -168,6 +194,7 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -236,7 +263,7 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
                      {item.isBookmarked ? (
                        <BookmarkCheck className="w-5 h-5 text-purple-600 fill-current" />
                      ) : (
-                       <Bookmark className="w-5 h-5 text-gray-400 hover:text-purple-600 transition-colors" />
+                       <Bookmark className="w-5 h-5 text-purple-600 hover:text-purple-700 transition-colors" />
                      )}
                    </button>
                  </td>

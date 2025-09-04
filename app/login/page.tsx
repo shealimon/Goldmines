@@ -18,18 +18,17 @@ function LoginForm() {
     password: '',
   });
 
-  // Simple auth check on component mount with timeout
+  // Quick auth check on component mount
   useEffect(() => {
     let isMounted = true;
-    let fallbackTimeout: NodeJS.Timeout;
     
     const checkAuth = async () => {
       try {
         console.log('🔍 Checking authentication status...');
         
-        // Add timeout to prevent hanging
+        // Quick timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth check timeout')), 3000)
+          setTimeout(() => reject(new Error('Auth check timeout')), 1000)
         );
         
         const authPromise = supabase.auth.getSession();
@@ -40,6 +39,7 @@ function LoginForm() {
         
         if (error) {
           console.error('❌ Auth check error:', error);
+          setIsPageReady(true);
           return;
         }
         
@@ -48,44 +48,56 @@ function LoginForm() {
           router.push('/dashboard');
         } else {
           console.log('ℹ️ No active session found');
+          setIsPageReady(true);
         }
       } catch (error) {
         if (!isMounted) return;
         console.error('❌ Auth check failed:', error);
-        // Don't redirect on error, just log it
-      } finally {
-        if (isMounted) {
-          setIsPageReady(true);
-        }
+        setIsPageReady(true);
       }
     };
     
-    // Set a fallback timeout to show the form even if auth check fails
-    fallbackTimeout = setTimeout(() => {
+    // Set a very short fallback timeout
+    const fallbackTimeout = setTimeout(() => {
       if (isMounted) {
         console.log('⏰ Auth check timeout, showing login form');
         setIsPageReady(true);
       }
-    }, 2000);
+    }, 500);
     
     checkAuth();
     
     return () => {
       isMounted = false;
-      if (fallbackTimeout) {
-        clearTimeout(fallbackTimeout);
-      }
+      clearTimeout(fallbackTimeout);
     };
   }, [router]);
+
+  // Cleanup effect for login process
+  useEffect(() => {
+    return () => {
+      // Clean up any pending login processes
+      if ((window as any).loginCleanup) {
+        (window as any).loginCleanup();
+        delete (window as any).loginCleanup;
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
+    // Set a maximum loading timeout to prevent infinite loading
+    const maxLoadingTimeout = setTimeout(() => {
+      console.log('⏰ Maximum loading time reached, resetting loading state');
+      setLoading(false);
+      setMessage('Login is taking longer than expected. Please try again.');
+    }, 10000); // 10 seconds max
+
     try {
       console.log('🔐 Attempting login with:', { email: formData.email });
-      console.log('🔐 Supabase client:', supabase);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
@@ -96,23 +108,55 @@ function LoginForm() {
 
       if (error) {
         console.error('❌ Login error:', error);
+        clearTimeout(maxLoadingTimeout);
         setMessage(`Login failed: ${error.message}`);
-      } else if (data.user) {
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
         console.log('✅ Login successful:', data.user);
         setMessage('Login successful! Redirecting...');
         
-        // Wait for auth state to update, then redirect
-        setTimeout(() => {
+        // Clear the max loading timeout since login was successful
+        clearTimeout(maxLoadingTimeout);
+        
+        // Listen for auth state change to ensure proper redirect
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+              console.log('🔄 Auth state updated, redirecting to dashboard');
+              subscription.unsubscribe();
+              router.push('/dashboard');
+            }
+          }
+        );
+
+        // Fallback redirect after 3 seconds if auth state doesn't change
+        const fallbackTimeout = setTimeout(() => {
+          console.log('⏰ Fallback redirect triggered');
+          subscription.unsubscribe();
           router.push('/dashboard');
-        }, 1000);
+        }, 3000);
+
+        // Clean up timeout if auth state changes
+        const cleanup = () => {
+          clearTimeout(fallbackTimeout);
+          subscription.unsubscribe();
+        };
+
+        // Store cleanup function for potential use
+        (window as any).loginCleanup = cleanup;
       } else {
         console.log('❌ No user data returned');
+        clearTimeout(maxLoadingTimeout);
         setMessage('Login failed: No user data returned');
+        setLoading(false);
       }
     } catch (error: unknown) {
       console.error('💥 Login exception:', error);
+      clearTimeout(maxLoadingTimeout);
       setMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
       setLoading(false);
     }
   };

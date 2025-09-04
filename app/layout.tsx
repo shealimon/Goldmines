@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { UserProvider } from '@/contexts/UserContext'
+import { NotificationProvider } from '@/app/components/NotificationProvider'
 import { neueHaasDisplay } from '@/lib/fonts'
 
 const geistSans = Geist({
@@ -30,7 +31,9 @@ export default function RootLayout({
         className={`${neueHaasDisplay.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <UserProvider>
-          {children}
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
         </UserProvider>
       </body>
     </html>

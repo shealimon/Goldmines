@@ -78,13 +78,26 @@ export interface MarketingIdeaPost extends RedditPost {
 // Parse a single business idea
 const parseSingleIdea = (text: string) => {
         const extractSection = (text: string, sectionName: string): string[] => {
-          // Find the start of the section
-          const sectionStart = text.indexOf(sectionName + ':');
+          // Find the start of the section - try multiple variations
+          let sectionStart = text.indexOf(sectionName + ':');
+          
+          // If not found, try case variations
+          if (sectionStart === -1) {
+            sectionStart = text.indexOf(sectionName.toLowerCase() + ':');
+          }
+          if (sectionStart === -1) {
+            sectionStart = text.indexOf(sectionName.toUpperCase() + ':');
+          }
+          if (sectionStart === -1) {
+            sectionStart = text.indexOf(sectionName + ' ');
+          }
+          
           if (sectionStart === -1) {
             if (sectionName === 'Market Size') {
               console.log('⚠️ Market Size section not found in text');
               console.log('🔍 Looking for:', sectionName + ':');
               console.log('🔍 Text preview:', text.substring(0, 500));
+              console.log('🔍 All section headers found:', text.match(/^[A-Z][^:]*:/gm) || []);
             }
             return [];
           }
@@ -135,6 +148,29 @@ const parseSingleIdea = (text: string) => {
             console.log(`📝 Section content:`, sectionContent);
             console.log(`📝 Raw lines:`, lines);
             console.log(`📝 Filtered bullet points:`, bulletPoints);
+            
+            // If no bullet points found, try to extract from the section content directly
+            if (bulletPoints.length === 0 && sectionContent.trim()) {
+              console.log(`📝 No bullet points found, trying to extract from section content...`);
+              
+              // Look for market size patterns in the section content
+              const marketSizePatterns = [
+                /(\$[\d,]+[BMK]?\s*(?:billion|million|trillion)?\s*(?:market|opportunity|value|worth))/gi,
+                /((?:billion|million|trillion)\s*(?:dollar|USD)?\s*(?:market|opportunity|value|worth))/gi,
+                /(market size[:\s]*[^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+                /(market opportunity[:\s]*[^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi
+              ];
+              
+              for (const pattern of marketSizePatterns) {
+                const match = sectionContent.match(pattern);
+                if (match && match[1]) {
+                  const extracted = match[1].trim();
+                  console.log(`✅ Found market size in section content:`, extracted);
+                  bulletPoints.push(extracted);
+                  break;
+                }
+              }
+            }
           }
           console.log(`📝 Extracted ${bulletPoints.length} items for ${sectionName}:`, bulletPoints);
           return bulletPoints;
@@ -323,9 +359,59 @@ const parseSingleIdea = (text: string) => {
       revenueModel.push('Subscription model', 'Freemium with premium features', 'Transaction fees');
     }
 
-    if (marketSize.length === 0) {
-      console.log('⚠️ Market size missing, using fallback');
-      marketSize.push('$1B+ market opportunity');
+    // If market size is empty or contains only default values, try to extract from full_analysis
+    const hasDefaultMarketSize = marketSize.length === 0 || 
+      (marketSize.length === 1 && marketSize[0] === '$1B+ market opportunity');
+    
+    if (hasDefaultMarketSize) {
+      console.log('⚠️ Market size section empty, attempting to extract from full_analysis...');
+      console.log('🔍 Full analysis text preview:', text.substring(0, 1000));
+      
+      // Try to extract market size information from the full analysis text
+      const marketSizePatterns = [
+        /market size[:\s]*([^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+        /market opportunity[:\s]*([^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+        /market value[:\s]*([^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+        /total addressable market[:\s]*([^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+        /tam[:\s]*([^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+        /market worth[:\s]*([^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+        /(\$[\d,]+[BMK]?\s*(?:billion|million|trillion)?\s*(?:market|opportunity|value|worth))/gi,
+        /((?:billion|million|trillion)\s*(?:dollar|USD)?\s*(?:market|opportunity|value|worth))/gi,
+        // Additional patterns for more flexible matching
+        /(\$[\d,]+[BMK]?\s*(?:billion|million|trillion)?)/gi,
+        /((?:billion|million|trillion)\s*(?:dollar|USD)?)/gi,
+        /(market.*?(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
+        /(opportunity.*?(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi
+      ];
+      
+      let extractedMarketSize = '';
+      for (const pattern of marketSizePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          // Use match[1] if it exists (capture group), otherwise use match[0] (full match)
+          const candidate = (match[1] || match[0]).trim();
+          if (candidate && candidate.length > 3) {
+            extractedMarketSize = candidate;
+            console.log('✅ Found market size in full_analysis:', extractedMarketSize);
+            console.log('🔍 Pattern used:', pattern.toString());
+            break;
+          }
+        }
+      }
+      
+      if (extractedMarketSize) {
+        // Clear any existing default values and add the extracted one
+        marketSize.length = 0;
+        marketSize.push(extractedMarketSize);
+        console.log('✅ Successfully extracted market size from full_analysis');
+      } else {
+        console.log('⚠️ No market size found in full_analysis, using fallback');
+        console.log('🔍 Text searched:', text.substring(0, 2000));
+        // Only add fallback if we don't already have it
+        if (marketSize.length === 0) {
+          marketSize.push('$1B+ market opportunity');
+        }
+      }
     }
 
     if (!category || category.length < 2) {
@@ -341,11 +427,6 @@ const parseSingleIdea = (text: string) => {
     if (marketingStrategy.length === 0) {
       console.log('⚠️ Marketing strategy missing, using fallback');
       marketingStrategy.push('Content marketing', 'Social media outreach', 'Partnership development');
-    }
-
-    if (marketSize.length === 0) {
-      console.log('⚠️ Market size missing, using fallback');
-      marketSize.push('$1B+ market opportunity', 'Growing market with high demand', 'Multiple revenue streams possible');
     }
 
     if (nextSteps.length === 0) {
@@ -381,7 +462,242 @@ const parseSingleIdea = (text: string) => {
     }
 };
 
+// Parse marketing response function
+const parseMarketingResponse = (text: string) => {
+  const extractSection = (text: string, sectionName: string): string[] => {
+    const sectionStart = text.indexOf(sectionName + ':');
+    if (sectionStart === -1) {
+      return [];
+    }
+    
+    const sectionNames = [
+      'Marketing Idea Name:', 'Idea Description:', 'Channel:', 'Target Audience:',
+      'Potential Impact:', 'Implementation Tips:', 'Success Metrics:', 'Full Analysis:'
+    ];
+    
+    let sectionEnd = text.length;
+    const remainingText = text.substring(sectionStart + sectionName.length + 1);
+    
+    for (const nextSection of sectionNames) {
+      if (nextSection === sectionName + ':') continue;
+      const nextSectionIndex = remainingText.indexOf(nextSection);
+      if (nextSectionIndex !== -1) {
+        sectionEnd = sectionStart + sectionName.length + 1 + nextSectionIndex;
+        break;
+      }
+    }
+    
+    const sectionContent = text.substring(sectionStart + sectionName.length + 1, sectionEnd);
+    const lines = sectionContent.split('\n');
+    const bulletPoints = lines
+      .map(line => line.trim())
+      .filter(line => line.startsWith('-'))
+      .map(line => line.substring(1).trim())
+      .filter(line => line.length > 0);
+    
+    return bulletPoints;
+  };
+
+  const extractSingleLine = (text: string, sectionName: string): string => {
+    const sectionStart = text.indexOf(sectionName + ':');
+    if (sectionStart !== -1) {
+      const sectionNames = [
+        'Marketing Idea Name:', 'Idea Description:', 'Channel:', 'Target Audience:',
+        'Potential Impact:', 'Implementation Tips:', 'Success Metrics:', 'Full Analysis:'
+      ];
+      
+      let sectionEnd = text.length;
+      const remainingText = text.substring(sectionStart + sectionName.length + 1);
+      
+      for (const nextSection of sectionNames) {
+        if (nextSection === sectionName + ':') continue;
+        const nextSectionIndex = remainingText.indexOf(nextSection);
+        if (nextSectionIndex !== -1) {
+          sectionEnd = sectionStart + sectionName.length + 1 + nextSectionIndex;
+          break;
+        }
+      }
+      
+      const sectionContent = text.substring(sectionStart + sectionName.length + 1, sectionEnd);
+      const firstLine = sectionContent.split('\n')[0].trim();
+      
+      if (firstLine && firstLine.length > 0) {
+        return firstLine.replace(/^\[|\]$/g, '').trim();
+      }
+    }
+    
+    return '';
+  };
+
+  try {
+    const marketingIdeaName = extractSingleLine(text, 'Marketing Idea Name');
+    const ideaDescription = extractSingleLine(text, 'Idea Description');
+    const channel = extractSection(text, 'Channel');
+    const targetAudience = extractSection(text, 'Target Audience');
+    const potentialImpact = extractSingleLine(text, 'Potential Impact') as 'High' | 'Medium' | 'Low';
+    const implementationTips = extractSection(text, 'Implementation Tips');
+    const successMetrics = extractSection(text, 'Success Metrics');
+    const fullAnalysis = extractSingleLine(text, 'Full Analysis');
+
+    return {
+      marketing_idea_name: marketingIdeaName || 'Marketing Strategy',
+      idea_description: ideaDescription || 'A comprehensive marketing approach',
+      channel: channel.length > 0 ? channel : ['Social Media', 'Content Marketing'],
+      target_audience: targetAudience.length > 0 ? targetAudience : ['General Audience'],
+      potential_impact: potentialImpact || 'Medium',
+      implementation_tips: implementationTips.length > 0 ? implementationTips : ['Start with research', 'Test and iterate'],
+      success_metrics: successMetrics.length > 0 ? successMetrics : ['Engagement', 'Conversion'],
+      full_analysis: fullAnalysis || text
+    };
+  } catch (error) {
+    console.error('Error parsing marketing response:', error);
+    return {
+      marketing_idea_name: 'Marketing Strategy',
+      idea_description: 'A comprehensive marketing approach',
+      channel: ['Social Media', 'Content Marketing'],
+      target_audience: ['General Audience'],
+      potential_impact: 'Medium' as const,
+      implementation_tips: ['Start with research', 'Test and iterate'],
+      success_metrics: ['Engagement', 'Conversion'],
+      full_analysis: text
+    };
+  }
+};
+
 export const openaiService = {
+
+  // Marketing ideas analysis method
+  async analyzeMarketingPosts(posts: RedditPost[]): Promise<MarketingIdeaPost[]> {
+    // Skip API calls during build if no valid API key
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
+      console.log('Skipping OpenAI marketing analysis during build - no valid API key');
+      return posts.map(post => ({
+        ...post,
+        analysis_status: 'failed',
+        marketing_idea_name: post.title,
+        idea_description: 'Build mode - no analysis available',
+        channel: ['Build mode'],
+        target_audience: ['Build mode'],
+        potential_impact: 'Medium' as const,
+        implementation_tips: ['Build mode - no analysis available'],
+        success_metrics: ['Build mode - no analysis available'],
+        full_analysis: 'Build mode - OpenAI analysis not available'
+      }));
+    }
+    
+    try {
+      console.log(`Analyzing ${posts.length} Reddit posts for marketing ideas with OpenAI...`);
+      
+      // Create a batch prompt with all posts
+      const batchPrompt = posts.map((post, index) => 
+        `Reddit Post ${index + 1}:
+Title: ${post.title}
+Content: ${post.content}`
+      ).join('\n\n');
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.2,
+        max_tokens: 4000,
+        messages: [
+          {
+            role: "system",
+            content: `You are a marketing strategist and digital marketing expert. 
+Analyze the following Reddit posts and generate structured marketing ideas and strategies.
+
+For each post, extract and create marketing ideas with these fields:
+- Marketing Idea Name: A catchy, descriptive name for the marketing strategy
+- Idea Description: Detailed description of the marketing approach
+- Channel: Array of marketing channels (e.g., Social Media, Email, Content Marketing, PPC, SEO)
+- Target Audience: Array of target audience segments
+- Potential Impact: High, Medium, or Low
+- Implementation Tips: Array of practical implementation steps
+- Success Metrics: Array of measurable success indicators
+- Full Analysis: Comprehensive marketing strategy analysis
+
+Format each marketing idea as:
+=== Post X - Marketing Idea Y ===
+Marketing Idea Name: [Name]
+Idea Description: [Description]
+Channel: 
+- [Channel 1]
+- [Channel 2]
+Target Audience:
+- [Audience 1]
+- [Audience 2]
+Potential Impact: [High/Medium/Low]
+Implementation Tips:
+- [Tip 1]
+- [Tip 2]
+Success Metrics:
+- [Metric 1]
+- [Metric 2]
+Full Analysis: [Comprehensive analysis]
+
+Generate 1-3 marketing ideas per post. Focus on actionable, practical marketing strategies.`
+          },
+          {
+            role: "user",
+            content: batchPrompt
+          }
+        ]
+      });
+
+      const responseText = completion.choices[0]?.message?.content || '';
+      console.log('OpenAI marketing response (full):', responseText);
+
+      // Parse the structured text response
+      const analyzedPosts: MarketingIdeaPost[] = [];
+      
+      // Split response into individual idea sections using the --- separator
+      const ideaSections = responseText.split(/---/);
+      
+      for (let i = 0; i < ideaSections.length; i++) {
+        const section = ideaSections[i].trim();
+        if (!section) continue;
+        
+        try {
+          // Parse the structured idea section
+          const parsedIdea = parseMarketingResponse(section);
+          
+          // Validate that the idea has proper content
+          if (!parsedIdea.marketing_idea_name || parsedIdea.marketing_idea_name.trim().length < 5) {
+            console.log(`⚠️ Skipping marketing idea with invalid title: ${parsedIdea.marketing_idea_name}`);
+            continue;
+          }
+
+          // Use the first post for attribution (since we're batching multiple posts into one prompt)
+          const post = posts[0];
+
+          const analyzedPost: MarketingIdeaPost = {
+            ...post,
+            analysis_status: 'completed',
+            marketing_idea_name: parsedIdea.marketing_idea_name,
+            idea_description: parsedIdea.idea_description,
+            channel: parsedIdea.channel,
+            target_audience: parsedIdea.target_audience,
+            potential_impact: parsedIdea.potential_impact,
+            implementation_tips: parsedIdea.implementation_tips,
+            success_metrics: parsedIdea.success_metrics,
+            full_analysis: parsedIdea.full_analysis
+          };
+          
+          analyzedPosts.push(analyzedPost);
+          console.log(`✅ Successfully processed marketing idea: ${parsedIdea.marketing_idea_name}`);
+        } catch (error) {
+          console.error(`❌ Error processing marketing idea section ${i}:`, error);
+        }
+      }
+
+      console.log(`✅ Successfully extracted ${analyzedPosts.length} marketing ideas from ${posts.length} posts`);
+      return analyzedPosts;
+
+    } catch (error) {
+      console.error('Marketing analysis error:', error);
+      // Return empty array instead of failed posts to avoid database constraint violations
+      return [];
+    }
+  },
 
   // Single batch function that does both pre-filtering AND analysis in one API call
   async batchAnalyzeRedditPosts(posts: RedditPost[]): Promise<AnalyzedPost[]> {
@@ -458,10 +774,13 @@ Market Size:
 - [$ values with short format, e.g. $2B, $500M]
 
 Niche:
-[Choose EXACTLY one of these three options: Business Idea OR Marketing Strategy OR Case Study]
+- [a SHORT micro-niche phrase (not a category), e.g. "Recruitment agencies", "SMB bookkeeping automation", "Solo creators", "D2C skincare founders", "Marketplace liquidity", "Field sales teams"]
+- 1 short phrase only (3–6 words)
+- Must reflect the specific audience/use-case
+- Must NOT duplicate the Idea title or Category
 
 Category:
-[industry like SaaS, FinTech, EdTech, HealthTech, Productivity, etc.]
+- [broader industry bucket like SaaS, FinTech, EdTech, HealthTech, HRTech, Ecommerce, Productivity, DevTools]
 
 Competitive Advantage:
 - [bullet points explaining why this idea is different or stronger than existing solutions]

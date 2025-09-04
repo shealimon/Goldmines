@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
+import { useNotification } from '@/app/components/NotificationProvider';
 import { 
   LogOut, 
   User, 
@@ -15,7 +16,9 @@ import {
   Search,
   Filter,
   Menu,
-  X
+  X,
+  Bookmark,
+  Loader2
 } from 'lucide-react';
 
 interface MarketingIdea {
@@ -45,6 +48,7 @@ interface MarketingIdea {
 export default function MarketingIdeasPage() {
   const router = useRouter();
   const { user, profile, loading, signOut } = useUser();
+  const { showNotification } = useNotification();
   const [marketingIdeas, setMarketingIdeas] = useState<MarketingIdea[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
@@ -52,6 +56,8 @@ export default function MarketingIdeasPage() {
   const [showIdeaDetail, setShowIdeaDetail] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [fetchingReddit, setFetchingReddit] = useState(false);
+  const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
+  const [bookmarkLoading, setBookmarkLoading] = useState<Set<string>>(new Set());
 
   // Check authentication using UserContext
   useEffect(() => {
@@ -74,11 +80,92 @@ export default function MarketingIdeasPage() {
     }
   };
 
+  // Fetch user's saved items
+  const fetchSavedItems = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch(`/api/saved?user_id=${user.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const marketingSavedIds = data.saved_items
+          .filter((item: any) => item.item_type === 'marketing')
+          .map((item: any) => item.id.toString());
+        setBookmarkedItems(new Set(marketingSavedIds));
+      }
+    } catch (err) {
+      console.error('Error fetching saved items:', err);
+    }
+  }, [user?.id]);
+
+  // Fetch saved items when user changes
+  useEffect(() => {
+    fetchSavedItems();
+  }, [fetchSavedItems]);
+
+  // Toggle bookmark
+  const toggleBookmark = useCallback(async (ideaId: string) => {
+    if (!user?.id) {
+      showNotification('Please log in to save bookmarks', 'error');
+      return;
+    }
+    
+    showNotification('Saving bookmark...', 'info');
+    
+    setBookmarkLoading(prev => new Set(prev).add(ideaId));
+    
+    try {
+      const isBookmarked = bookmarkedItems.has(ideaId);
+      const response = await fetch('/api/saved', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          item_type: 'marketing',
+          item_id: parseInt(ideaId),
+          action: isBookmarked ? 'remove' : 'save'
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setBookmarkedItems(prev => {
+          const newSet = new Set(prev);
+          if (data.action === 'saved') {
+            newSet.add(ideaId);
+            showNotification('Marketing idea has been saved to your collection', 'success');
+          } else if (data.action === 'removed') {
+            newSet.delete(ideaId);
+            showNotification('Marketing idea has been removed from your collection', 'info');
+          }
+          return newSet;
+        });
+      } else {
+        console.error('Bookmark error:', data.message);
+        showNotification(data.message || 'Failed to save bookmark', 'error');
+      }
+    } catch (err) {
+      console.error('Error toggling bookmark:', err);
+      showNotification('Failed to save bookmark. Please try again.', 'error');
+    } finally {
+      setBookmarkLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(ideaId);
+        return newSet;
+      });
+    }
+  }, [user?.id, bookmarkedItems, showNotification]);
+
   // Function to fetch and analyze Reddit data with OpenAI (BATCH PROCESSING)
   const fetchRedditData = async () => {
     try {
       console.log('🚀 Starting fetchRedditData with OpenAI analysis for Marketing Ideas...');
       setFetchingReddit(true);
+      showNotification('Please wait while we analyze Reddit posts...', 'info');
       
       // POST request to fetch posts, analyze with OpenAI, and save to marketing_ideas table
       console.log('📡 Making POST request to /api/marketing-ideas...');
@@ -117,19 +204,35 @@ export default function MarketingIdeasPage() {
         // Show success message if any posts were processed
         if (responseData.successfully_processed > 0) {
           console.log(`🎉 ${responseData.successfully_processed} new marketing ideas added!`);
+          showNotification(
+            `${responseData.successfully_processed} new marketing idea${responseData.successfully_processed > 1 ? 's' : ''} generated and added to your collection.`, 
+            'success'
+          );
         } else {
           console.log('📭 No new marketing ideas were generated (posts may not contain marketing content)');
+          showNotification(
+            'We analyzed the latest posts but didn\'t find any new marketing opportunities at this time. Try again later!', 
+            'info'
+          );
         }
         
       } else {
         console.error('❌ API returned error:', responseData.message);
         console.log('📋 Full response:', responseData);
+        showNotification(
+          responseData.message || 'Failed to generate new marketing ideas. Please try again.', 
+          'error'
+        );
         // Even on error, try to refresh marketing ideas to show current state
         await loadMarketingIdeas();
       }
       
     } catch (error) {
       console.error('💥 Error fetching Reddit data:', error);
+      showNotification(
+        'An error occurred while generating new marketing ideas. Please try again.', 
+        'error'
+      );
     } finally {
       console.log('🔄 Setting fetchingReddit to false...');
       setFetchingReddit(false);
@@ -364,32 +467,54 @@ export default function MarketingIdeasPage() {
                       {marketingIdeas.map((idea, index) => (
                         <div 
                           key={`mobile-idea-${idea.id}`}
-                          onClick={() => {
-                            console.log('🔍 Opening marketing idea detail (mobile):', {
-                              marketing_idea_name: idea.marketing_idea_name,
-                              has_full_analysis: !!idea.full_analysis,
-                              full_analysis_length: idea.full_analysis?.length || 0,
-                              full_analysis_preview: idea.full_analysis?.substring(0, 100) || 'None'
-                            });
-                            setSelectedIdea(idea);
-                            setShowIdeaDetail(true);
-                          }}
-                          className="p-4 hover:bg-gray-50 cursor-pointer transition-all duration-200"
+                          className="p-4 hover:bg-gray-50 transition-all duration-200"
                         >
                           <div className="flex items-start space-x-3">
                             <div className="w-12 text-xs text-gray-400 font-medium">
                               {index + 1}
                             </div>
-                            <div className="flex-1 min-w-0">
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer"
+                              onClick={() => {
+                                console.log('🔍 Opening marketing idea detail (mobile):', {
+                                  marketing_idea_name: idea.marketing_idea_name,
+                                  has_full_analysis: !!idea.full_analysis,
+                                  full_analysis_length: idea.full_analysis?.length || 0,
+                                  full_analysis_preview: idea.full_analysis?.substring(0, 100) || 'None'
+                                });
+                                setSelectedIdea(idea);
+                                setShowIdeaDetail(true);
+                              }}
+                            >
                               <div className="text-sm font-medium text-gray-900">
                                 {idea.marketing_idea_name || 'Untitled Marketing Idea'}
                               </div>
                             </div>
-                            <div className="w-20 text-xs text-gray-500">
-                              {idea.reddit_created_utc ? 
-                                new Date(idea.reddit_created_utc * 1000).toLocaleDateString() : 
-                                'Unknown Date'
-                              }
+                            <div className="flex items-center space-x-2">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleBookmark(idea.id);
+                                }}
+                                disabled={bookmarkLoading.has(idea.id)}
+                                className={`p-1 rounded transition-colors ${
+                                  bookmarkedItems.has(idea.id) 
+                                    ? 'text-yellow-500 hover:text-yellow-600' 
+                                    : 'text-gray-400 hover:text-gray-600'
+                                }`}
+                              >
+                                {bookmarkLoading.has(idea.id) ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Bookmark className={`w-4 h-4 ${bookmarkedItems.has(idea.id) ? 'fill-current' : ''}`} />
+                                )}
+                              </button>
+                              <div className="w-20 text-xs text-gray-500">
+                                {idea.reddit_created_utc ? 
+                                  new Date(idea.reddit_created_utc * 1000).toLocaleDateString() : 
+                                  'Unknown Date'
+                                }
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -410,6 +535,7 @@ export default function MarketingIdeasPage() {
                       <tr>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marketing Idea</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Save</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Date</th>
                       </tr>
                     </thead>
@@ -418,23 +544,45 @@ export default function MarketingIdeasPage() {
                         marketingIdeas.map((idea, index) => (
                           <tr 
                             key={`data-row-${index}-id-${idea.id}`}
-                            onClick={() => {
-                              console.log('🔍 Opening marketing idea detail (desktop):', {
-                                marketing_idea_name: idea.marketing_idea_name,
-                                has_full_analysis: !!idea.full_analysis,
-                                full_analysis_length: idea.full_analysis?.length || 0,
-                                full_analysis_preview: idea.full_analysis?.substring(0, 100) || 'None'
-                              });
-                              setSelectedIdea(idea);
-                              setShowIdeaDetail(true);
-                            }}
-                            className="hover:bg-gray-50 cursor-pointer transition-all duration-200"
+                            className="hover:bg-gray-50 transition-all duration-200"
                           >
                             <td className="px-3 py-2 text-gray-500 text-sm font-medium">
                               {index + 1}
                             </td>
-                            <td className="px-3 py-2">
+                            <td 
+                              className="px-3 py-2 cursor-pointer"
+                              onClick={() => {
+                                console.log('🔍 Opening marketing idea detail (desktop):', {
+                                  marketing_idea_name: idea.marketing_idea_name,
+                                  has_full_analysis: !!idea.full_analysis,
+                                  full_analysis_length: idea.full_analysis?.length || 0,
+                                  full_analysis_preview: idea.full_analysis?.substring(0, 100) || 'None'
+                                });
+                                setSelectedIdea(idea);
+                                setShowIdeaDetail(true);
+                              }}
+                            >
                               <div className="text-gray-900 font-medium text-sm">{idea.marketing_idea_name || 'Untitled Marketing Idea'}</div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleBookmark(idea.id);
+                                }}
+                                disabled={bookmarkLoading.has(idea.id)}
+                                className={`p-1 rounded transition-colors ${
+                                  bookmarkedItems.has(idea.id) 
+                                    ? 'text-yellow-500 hover:text-yellow-600' 
+                                    : 'text-gray-400 hover:text-gray-600'
+                                }`}
+                              >
+                                {bookmarkLoading.has(idea.id) ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Bookmark className={`w-4 h-4 ${bookmarkedItems.has(idea.id) ? 'fill-current' : ''}`} />
+                                )}
+                              </button>
                             </td>
                             <td className="px-3 py-2 text-gray-500 text-xs">
                               {idea.reddit_created_utc ? 
