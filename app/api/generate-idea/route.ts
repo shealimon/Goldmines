@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Save the business idea to the database
-    const businessIdeaData = {
+    // First, save the mock Reddit post to reddit_posts table
+    const redditPostData = {
       reddit_post_id: mockRedditPost.id,
       reddit_title: mockRedditPost.title,
       reddit_content: mockRedditPost.content || '',
@@ -67,8 +67,27 @@ export async function POST(request: NextRequest) {
       reddit_comments: mockRedditPost.num_comments || 0,
       reddit_url: mockRedditPost.url,
       reddit_permalink: mockRedditPost.permalink,
-      reddit_created_utc: mockRedditPost.created_utc,
+      reddit_created_utc: mockRedditPost.created_utc
+    };
 
+    console.log('💾 Saving mock Reddit post to database...');
+    const { data: redditPost, error: redditError } = await supabaseAdmin
+      .from('reddit_posts')
+      .insert(redditPostData)
+      .select()
+      .single();
+
+    if (redditError) {
+      console.error('❌ Error saving Reddit post:', redditError);
+      return NextResponse.json(
+        { success: false, message: 'Error saving Reddit post' },
+        { status: 500 }
+      );
+    }
+
+    // Save the business idea to the database
+    const businessIdeaData = {
+      reddit_post_id: redditPost.id, // Use database ID, not Reddit post ID
       business_idea_name: analyzedPost.business_idea_name,
       opportunity_points: analyzedPost.opportunity_points,
       problems_solved: analyzedPost.problems_solved,

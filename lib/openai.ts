@@ -153,8 +153,13 @@ const parseSingleIdea = (text: string) => {
             if (bulletPoints.length === 0 && sectionContent.trim()) {
               console.log(`📝 No bullet points found, trying to extract from section content...`);
               
-              // Look for market size patterns in the section content
+              // Look for market size patterns in the section content - prioritize simple dollar amounts
               const marketSizePatterns = [
+                // Simple dollar amounts first (most reliable)
+                /\$[\d,]+[BMK]?/g,
+                // Numbers with B/M/K suffixes
+                /[\d,]+[BMK]/g,
+                // More complex patterns
                 /(\$[\d,]+[BMK]?\s*(?:billion|million|trillion)?\s*(?:market|opportunity|value|worth))/gi,
                 /((?:billion|million|trillion)\s*(?:dollar|USD)?\s*(?:market|opportunity|value|worth))/gi,
                 /(market size[:\s]*[^.!?]*(?:billion|million|trillion|\$[\d,]+[BMK]?)[^.!?]*)/gi,
@@ -162,13 +167,40 @@ const parseSingleIdea = (text: string) => {
               ];
               
               for (const pattern of marketSizePatterns) {
-                const match = sectionContent.match(pattern);
-                if (match && match[1]) {
-                  const extracted = match[1].trim();
+                const matches = sectionContent.match(pattern);
+                if (matches && matches.length > 0) {
+                  // Take the first match and format it properly
+                  let extracted = matches[0].trim();
+                  
+                  // If it's just a number with B/M/K, add dollar sign
+                  if (/^[\d,]+[BMK]$/.test(extracted)) {
+                    extracted = `$${extracted}`;
+                  }
+                  
+                  // If it's a complex match, extract just the dollar amount
+                  if (extracted.includes('$')) {
+                    const dollarMatch = extracted.match(/\$[\d,]+[BMK]?/);
+                    if (dollarMatch) {
+                      extracted = dollarMatch[0];
+                    }
+                  }
+                  
                   console.log(`✅ Found market size in section content:`, extracted);
                   bulletPoints.push(extracted);
-                  break;
+                  break; // Only take the first valid match
                 }
+              }
+            }
+            
+            // If still no market size found, try to extract from the first line
+            if (bulletPoints.length === 0 && lines.length > 0) {
+              const firstLine = lines[0].trim();
+              console.log(`📝 Trying to extract from first line:`, firstLine);
+              
+              const dollarMatch = firstLine.match(/\$[\d,]+[BMK]?/);
+              if (dollarMatch) {
+                console.log(`✅ Found market size in first line:`, dollarMatch[0]);
+                bulletPoints.push(dollarMatch[0]);
               }
             }
           }
@@ -315,10 +347,58 @@ const parseSingleIdea = (text: string) => {
     let marketSize = extractSection(text, 'Market Size');
     console.log('🔍 Extracted market size:', marketSize);
     console.log('🔍 Market size length:', marketSize?.length || 0);
+    
+    // Check if market size contains the entire analysis (common AI error)
+    if (marketSize.length === 1 && marketSize[0] && marketSize[0].length > 200) {
+      console.log('⚠️ Market size contains entire analysis, attempting to extract just the value...');
+      const fullAnalysis = marketSize[0];
+      
+      // Try to extract just the market size value from the analysis
+      const dollarMatch = fullAnalysis.match(/\$[\d,]+[BMK]?/);
+      if (dollarMatch) {
+        console.log('✅ Extracted market size value from analysis:', dollarMatch[0]);
+        marketSize = [dollarMatch[0]];
+      } else {
+        // If no dollar amount found, try to find numbers with B/M/K
+        const numberMatch = fullAnalysis.match(/[\d,]+[BMK]/);
+        if (numberMatch) {
+          console.log('✅ Extracted market size value from analysis (formatted):', `$${numberMatch[0]}`);
+          marketSize = [`$${numberMatch[0]}`];
+        } else {
+          console.log('⚠️ Could not extract market size from analysis, using default');
+          marketSize = ['$1B+ market opportunity'];
+        }
+      }
+    }
     let category = extractSingleLine(text, 'Category');
     let competitiveAdvantage = extractSection(text, 'Competitive Advantage');
     let marketingStrategy = extractSection(text, 'Marketing Strategy');
     let nextSteps = extractSection(text, 'Next Steps');
+
+    // Clean up business idea name and niche - remove quotes from beginning
+    if (businessIdeaName) {
+      businessIdeaName = businessIdeaName.trim();
+      // Remove quotes from beginning and end
+      if (businessIdeaName.startsWith('"') && businessIdeaName.endsWith('"')) {
+        businessIdeaName = businessIdeaName.slice(1, -1);
+        console.log('🧹 Removed quotes from business idea name:', businessIdeaName);
+      } else if (businessIdeaName.startsWith('"')) {
+        businessIdeaName = businessIdeaName.slice(1);
+        console.log('🧹 Removed leading quote from business idea name:', businessIdeaName);
+      }
+    }
+
+    if (niche) {
+      niche = niche.trim();
+      // Remove quotes from beginning and end
+      if (niche.startsWith('"') && niche.endsWith('"')) {
+        niche = niche.slice(1, -1);
+        console.log('🧹 Removed quotes from niche:', niche);
+      } else if (niche.startsWith('"')) {
+        niche = niche.slice(1);
+        console.log('🧹 Removed leading quote from niche:', niche);
+      }
+    }
 
     // Validate required fields with fallback
     if (!businessIdeaName || businessIdeaName.length < 3) {
@@ -389,12 +469,29 @@ const parseSingleIdea = (text: string) => {
         const match = text.match(pattern);
         if (match) {
           // Use match[1] if it exists (capture group), otherwise use match[0] (full match)
-          const candidate = (match[1] || match[0]).trim();
+          let candidate = (match[1] || match[0]).trim();
+          
+          // Clean up the candidate to extract just the dollar amount
           if (candidate && candidate.length > 3) {
-            extractedMarketSize = candidate;
-            console.log('✅ Found market size in full_analysis:', extractedMarketSize);
-            console.log('🔍 Pattern used:', pattern.toString());
-            break;
+            // If it contains a dollar amount, extract just that
+            const dollarMatch = candidate.match(/\$[\d,]+[BMK]?/);
+            if (dollarMatch) {
+              candidate = dollarMatch[0];
+            } else {
+              // If it's just a number with B/M/K, add dollar sign
+              const numberMatch = candidate.match(/[\d,]+[BMK]/);
+              if (numberMatch) {
+                candidate = `$${numberMatch[0]}`;
+              }
+            }
+            
+            // Only use if it's a reasonable length (not the entire analysis)
+            if (candidate.length < 50 && candidate.length > 2) {
+              extractedMarketSize = candidate;
+              console.log('✅ Found market size in full_analysis:', extractedMarketSize);
+              console.log('🔍 Pattern used:', pattern.toString());
+              break;
+            }
           }
         }
       }
@@ -539,8 +636,22 @@ const parseMarketingResponse = (text: string) => {
     const successMetrics = extractSection(text, 'Success Metrics');
     const fullAnalysis = extractSingleLine(text, 'Full Analysis');
 
+    // Clean up marketing idea name - remove quotes from beginning
+    let cleanMarketingIdeaName = marketingIdeaName;
+    if (cleanMarketingIdeaName) {
+      cleanMarketingIdeaName = cleanMarketingIdeaName.trim();
+      // Remove quotes from beginning and end
+      if (cleanMarketingIdeaName.startsWith('"') && cleanMarketingIdeaName.endsWith('"')) {
+        cleanMarketingIdeaName = cleanMarketingIdeaName.slice(1, -1);
+        console.log('🧹 Removed quotes from marketing idea name:', cleanMarketingIdeaName);
+      } else if (cleanMarketingIdeaName.startsWith('"')) {
+        cleanMarketingIdeaName = cleanMarketingIdeaName.slice(1);
+        console.log('🧹 Removed leading quote from marketing idea name:', cleanMarketingIdeaName);
+      }
+    }
+
     return {
-      marketing_idea_name: marketingIdeaName || 'Marketing Strategy',
+      marketing_idea_name: cleanMarketingIdeaName || 'Marketing Strategy',
       idea_description: ideaDescription || 'A comprehensive marketing approach',
       channel: channel.length > 0 ? channel : ['Social Media', 'Content Marketing'],
       target_audience: targetAudience.length > 0 ? targetAudience : ['General Audience'],
@@ -873,6 +984,79 @@ Important:
       console.error('Batch analysis error:', error);
       // Return empty array instead of failed posts to avoid database constraint violations
       return [];
+    }
+  },
+
+  // Generate structured output for case studies
+  async generateStructuredOutput({ prompt, schema, model = 'gpt-4o-mini', temperature = 0.7 }: {
+    prompt: string;
+    schema: any;
+    model?: string;
+    temperature?: number;
+  }): Promise<{ success: boolean; data?: any; error?: string }> {
+    // Skip API calls during build if no valid API key
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-build') {
+      console.log('Skipping OpenAI structured output during build - no valid API key');
+      return {
+        success: false,
+        error: 'OpenAI API key not available during build'
+      };
+    }
+
+    try {
+      console.log('🤖 Generating structured output with OpenAI...');
+      
+      const completion = await openai.chat.completions.create({
+        model,
+        temperature,
+        max_tokens: 4000,
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert content generator. Generate high-quality, engaging content that follows the exact JSON schema provided. Always return valid JSON that matches the schema structure."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "case_study_response",
+            schema: schema,
+            strict: true
+          }
+        }
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content generated by OpenAI');
+      }
+
+      console.log('✅ OpenAI structured output generated successfully');
+      
+      try {
+        const parsedData = JSON.parse(content);
+        return {
+          success: true,
+          data: parsedData
+        };
+      } catch (parseError) {
+        console.error('❌ Error parsing JSON response:', parseError);
+        return {
+          success: false,
+          error: 'Failed to parse JSON response from OpenAI'
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ OpenAI structured output error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   },
 };

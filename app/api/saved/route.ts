@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           full_analysis,
           category,
           niche,
-          reddit_posts!inner (
+          reddit_posts (
             reddit_title,
             reddit_author,
             reddit_subreddit
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
           unifiedItems.push({
             id: idea.id,
             item_type: 'business',
-            title: idea.business_idea_name || (idea.reddit_posts as any)?.reddit_title || 'Untitled Business Idea',
+            title: idea.business_idea_name || idea.reddit_posts?.[0]?.reddit_title || 'Untitled Business Idea',
             summary: idea.full_analysis?.substring(0, 200) + '...' || 'No description available',
             category: idea.category || 'General',
             niche: idea.niche,
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
           marketing_idea_name,
           full_analysis,
           category,
-          reddit_posts!inner (
+          reddit_posts (
             reddit_title,
             reddit_author,
             reddit_subreddit
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
           unifiedItems.push({
             id: idea.id,
             item_type: 'marketing',
-            title: idea.marketing_idea_name || (idea.reddit_posts as any)?.reddit_title || 'Untitled Marketing Idea',
+            title: idea.marketing_idea_name || idea.reddit_posts?.[0]?.reddit_title || 'Untitled Marketing Idea',
             summary: idea.full_analysis?.substring(0, 200) + '...' || 'No description available',
             category: idea.category || 'Marketing',
             saved_at: savedItem?.created_at

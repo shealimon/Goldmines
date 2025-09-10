@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { useNotification } from '@/app/components/NotificationProvider';
+import { useRouter } from 'next/navigation';
 
 interface SavedItem {
   id: number;
@@ -35,8 +36,9 @@ interface SavedItem {
 }
 
 export default function SavedIdeasPage() {
-  const { user, profile } = useUser();
+  const { user, profile, loading: authLoading } = useUser();
   const { showNotification } = useNotification();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
@@ -69,10 +71,37 @@ export default function SavedIdeasPage() {
     }
   }, [user?.id]);
 
+  // Authentication guard - redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      console.log('🚫 No user found, redirecting to login');
+      router.push('/login');
+    }
+  }, [authLoading, user, router]);
+
   // Fetch saved items when user changes
   useEffect(() => {
     fetchSavedItems();
   }, [fetchSavedItems]);
+
+  // Show loading state while authentication is being checked
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if user is not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
 
   // Toggle bookmark (remove from saved)
   const toggleBookmark = async (itemId: string, itemType: 'business' | 'marketing') => {

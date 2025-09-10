@@ -10,8 +10,14 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
     // 1. Check by exact reddit_post_id (same post)
     const { data: existingById, error: idError } = await supabase
       .from('business_ideas')
-      .select('id, reddit_title, reddit_subreddit')
-      .eq('reddit_post_id', post.id)
+      .select(`
+        id,
+        reddit_posts (
+          reddit_title,
+          reddit_subreddit
+        )
+      `)
+      .eq('reddit_posts.reddit_post_id', post.id)
       .single();
 
     if (existingById) {
@@ -25,15 +31,22 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
     // 2. Check by exact title match (catches crossposts with identical titles)
     const { data: existingByExactTitle, error: exactTitleError } = await supabase
       .from('business_ideas')
-      .select('id, reddit_title, reddit_subreddit, reddit_author')
-      .eq('reddit_title', post.title)
+      .select(`
+        id,
+        reddit_posts (
+          reddit_title,
+          reddit_subreddit,
+          reddit_author
+        )
+      `)
+      .eq('reddit_posts.reddit_title', post.title)
       .single();
 
     if (existingByExactTitle) {
-      console.log(`🚫 DUPLICATE DETECTED: Exact same title "${post.title}" already exists in r/${existingByExactTitle.reddit_subreddit} by ${existingByExactTitle.reddit_author}`);
+      console.log(`🚫 DUPLICATE DETECTED: Exact same title "${post.title}" already exists in r/${existingByExactTitle.reddit_posts?.reddit_subreddit} by ${existingByExactTitle.reddit_posts?.reddit_author}`);
       return { 
         isDuplicate: true, 
-        reason: `Exact same title already exists in r/${existingByExactTitle.reddit_subreddit} by ${existingByExactTitle.reddit_author}`, 
+        reason: `Exact same title already exists in r/${existingByExactTitle.reddit_posts?.reddit_subreddit} by ${existingByExactTitle.reddit_posts?.reddit_author}`, 
         existingId: existingByExactTitle.id 
       };
     }
@@ -41,13 +54,20 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
     // 3. Check by author + similar content (same user posting similar ideas)
     const { data: existingByAuthor, error: authorError } = await supabase
       .from('business_ideas')
-      .select('id, reddit_title, reddit_subreddit, reddit_content')
-      .eq('reddit_author', post.author)
+      .select(`
+        id,
+        reddit_posts (
+          reddit_title,
+          reddit_subreddit,
+          reddit_content
+        )
+      `)
+      .eq('reddit_posts.reddit_author', post.author)
       .limit(5);
 
     if (existingByAuthor && existingByAuthor.length > 0) {
       for (const existing of existingByAuthor) {
-        const existingContent = existing.reddit_content.toLowerCase().replace(/[^\w\s]/g, '').trim();
+        const existingContent = existing.reddit_posts?.reddit_content?.toLowerCase().replace(/[^\w\s]/g, '').trim() || '';
         const currentContent = post.content.toLowerCase().replace(/[^\w\s]/g, '').trim();
         
         // Simple content similarity check
@@ -60,7 +80,7 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
           if (similarity > 0.3) { // 30% similarity threshold
             return { 
               isDuplicate: true, 
-              reason: `Similar content by same author (${Math.round(similarity * 100)}% match) already exists in r/${existing.reddit_subreddit}`, 
+              reason: `Similar content by same author (${Math.round(similarity * 100)}% match) already exists in r/${existing.reddit_posts?.reddit_subreddit}`, 
               existingId: existing.id 
             };
           }

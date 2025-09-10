@@ -110,6 +110,14 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
   const [sortBy, setSortBy] = useState<'date' | 'saved'>('date');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
+  // Debug logging
+  console.log('🔍 DataTable Debug:', {
+    title,
+    dataLength: data.length,
+    data: data.slice(0, 2), // Show first 2 items
+    isLoading
+  });
+
   const sortedData = [...data].sort((a, b) => {
     switch (sortBy) {
       case 'date':
@@ -119,6 +127,12 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
       default:
         return 0;
     }
+  });
+
+  // Debug sorted data
+  console.log('🔍 Sorted Data Debug:', {
+    sortedDataLength: sortedData.length,
+    sortedData: sortedData.slice(0, 2) // Show first 2 items
   });
 
   const formatDate = (dateString: string) => {
@@ -145,7 +159,7 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
                onClick={onLoad}
                disabled={isLoading}
                className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-               title="Load New Ideas"
+               title={`Load New ${title}`}
              >
                {isLoading ? (
                  <RefreshCw className="w-5 h-5 animate-spin text-purple-600" />
@@ -326,10 +340,18 @@ export default function DataTable({ data, onBookmarkToggle, onViewDetails, onDel
       {sortedData.length === 0 && (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lightbulb className="w-8 h-8 text-gray-400" />
+            {title === 'Case Studies' ? (
+              <BookOpen className="w-8 h-8 text-gray-400" />
+            ) : (
+              <Lightbulb className="w-8 h-8 text-gray-400" />
+            )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No content yet</h3>
-          <p className="text-gray-500">Start generating ideas to see them here</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {title === 'Case Studies' ? 'No case studies yet' : 'No content yet'}
+          </h3>
+          <p className="text-gray-500">
+            {title === 'Case Studies' ? 'Start generating case studies to see them here' : 'Start generating ideas to see them here'}
+          </p>
         </div>
       )}
     </div>

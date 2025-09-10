@@ -3,6 +3,14 @@ DROP TABLE IF EXISTS saved_items CASCADE;
 DROP TABLE IF EXISTS business_ideas CASCADE;
 DROP TABLE IF EXISTS reddit_posts CASCADE;
 
+-- Drop case study related tables if they exist
+DROP TABLE IF EXISTS case_study_tags CASCADE;
+DROP TABLE IF EXISTS case_study_quotes CASCADE;
+DROP TABLE IF EXISTS case_study_funding CASCADE;
+DROP TABLE IF EXISTS case_study_sections CASCADE;
+DROP TABLE IF EXISTS case_studies CASCADE;
+DROP TABLE IF EXISTS tags CASCADE;
+
 -- Create reddit_posts table (completely unrestricted - no RLS, no auth)
 CREATE TABLE reddit_posts (
     id SERIAL PRIMARY KEY,
@@ -119,6 +127,96 @@ CREATE TRIGGER update_marketing_ideas_updated_at
 -- Grant necessary permissions (no RLS - unrestricted like other tables)
 GRANT ALL ON saved_items TO authenticated;
 GRANT USAGE ON SEQUENCE saved_items_id_seq TO authenticated;
+
+-- ==========================================================
+-- CASE STUDY TABLES (Simplified - No unnecessary columns)
+-- ==========================================================
+
+-- Main case studies table
+CREATE TABLE case_studies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    subtitle TEXT,
+    category TEXT,
+    cover_image_url TEXT,
+    current_revenue TEXT,
+    valuation TEXT,
+    starting_income TEXT,
+    lifetime_revenue TEXT,
+    users_count BIGINT,
+    market_context TEXT,
+    raw_output JSONB,
+    sources JSONB,
+    confidence JSONB,
+    company_url TEXT,
+    founder_name TEXT,
+    app_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Case study sections (ordered)
+CREATE TABLE case_study_sections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_study_id UUID NOT NULL REFERENCES case_studies(id) ON DELETE CASCADE,
+    sort_order INTEGER DEFAULT 0,
+    name TEXT,
+    emoji TEXT,
+    heading TEXT,
+    body TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Funding rounds
+CREATE TABLE case_study_funding (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_study_id UUID NOT NULL REFERENCES case_studies(id) ON DELETE CASCADE,
+    round_name TEXT,
+    amount TEXT,
+    raised_at DATE,
+    investors TEXT[],
+    source TEXT,
+    note TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Quotes (simplified - no source column)
+CREATE TABLE case_study_quotes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_study_id UUID NOT NULL REFERENCES case_studies(id) ON DELETE CASCADE,
+    who TEXT,
+    quote TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tags
+CREATE TABLE tags (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+);
+
+-- Case study tags junction
+CREATE TABLE case_study_tags (
+    case_study_id UUID NOT NULL REFERENCES case_studies(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (case_study_id, tag_id)
+);
+
+-- Create indexes for case study tables
+CREATE INDEX idx_case_studies_slug ON case_studies(slug);
+CREATE INDEX idx_case_studies_created_at ON case_studies(created_at);
+CREATE INDEX idx_case_study_sections_case_study_id ON case_study_sections(case_study_id);
+CREATE INDEX idx_case_study_sections_sort_order ON case_study_sections(sort_order);
+CREATE INDEX idx_case_study_funding_case_study_id ON case_study_funding(case_study_id);
+CREATE INDEX idx_case_study_quotes_case_study_id ON case_study_quotes(case_study_id);
+CREATE INDEX idx_case_study_tags_case_study_id ON case_study_tags(case_study_id);
+CREATE INDEX idx_case_study_tags_tag_id ON case_study_tags(tag_id);
+
+-- Create triggers for case study tables
+CREATE TRIGGER update_case_studies_updated_at 
+    BEFORE UPDATE ON case_studies 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- NOTE: All tables are COMPLETELY UNRESTRICTED
 -- No RLS enabled, no auth restrictions

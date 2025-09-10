@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import DataTable from '@/app/components/DataTable';
 import { useUser } from '@/contexts/UserContext';
 import { useNotification } from '@/app/components/NotificationProvider';
@@ -599,7 +599,7 @@ interface BusinessIdea {
 }
 
 export default function Dashboard() {
-  const { user, profile, signOut } = useUser();
+  const { user, profile, loading: authLoading, signOut } = useUser();
   const { showNotification } = useNotification();
   const router = useRouter(); // Added useRouter hook
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -609,6 +609,10 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIdea, setSelectedIdea] = useState<BusinessIdea | null>(null);
   const [showIdeaModal, setShowIdeaModal] = useState(false);
+  const [selectedCaseStudy, setSelectedCaseStudy] = useState<any>(null);
+  const [showCaseStudyDetails, setShowCaseStudyDetails] = useState(false);
+  const [caseStudyDetails, setCaseStudyDetails] = useState<any>(null);
+  const [caseStudyDetailsLoading, setCaseStudyDetailsLoading] = useState(false);
   const [dashboardStats, setDashboardStats] = useState({
     todayIdeas: 0,
     totalIdeas: 0,
@@ -629,7 +633,6 @@ export default function Dashboard() {
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false); // Add this flag
   const [showMobileMenu, setShowMobileMenu] = useState(false); // Mobile menu state
   const [signingOut, setSigningOut] = useState(false); // Add signing out state
-  const [showBothSidebars, setShowBothSidebars] = useState(false); // Toggle for testing both sidebars
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -641,6 +644,18 @@ export default function Dashboard() {
   const [marketingIdeas, setMarketingIdeas] = useState<any[]>([]);
   const [marketingLoading, setMarketingLoading] = useState(false);
   const [marketingError, setMarketingError] = useState<string | null>(null);
+  
+  // Case studies state
+  const [caseStudies, setCaseStudies] = useState<any[]>([]);
+  const [caseStudyLoading, setCaseStudyLoading] = useState(false);
+  const [caseStudyError, setCaseStudyError] = useState<string | null>(null);
+  const [caseStudyBookmarked, setCaseStudyBookmarked] = useState<Set<number>>(new Set());
+  const [generatingCaseStudy, setGeneratingCaseStudy] = useState(false);
+  
+  // Case studies pagination state
+  const [caseStudyCurrentPage, setCaseStudyCurrentPage] = useState(1);
+  const [caseStudyTotalPages, setCaseStudyTotalPages] = useState(1);
+  const [caseStudyTotalCount, setCaseStudyTotalCount] = useState(0);
   const [marketingBookmarked, setMarketingBookmarked] = useState<Set<number>>(new Set());
   const [generatingMarketingIdea, setGeneratingMarketingIdea] = useState(false);
   
@@ -679,6 +694,14 @@ export default function Dashboard() {
       console.log('🏁 handleSignOut completed');
     }
   };
+
+  // Authentication guard - redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      console.log('🚫 No user found, redirecting to login');
+      router.push('/login');
+    }
+  }, [authLoading, user, router]);
 
   // Fetch dashboard data when component mounts or when dashboard tab is active
   useEffect(() => {
@@ -721,6 +744,221 @@ export default function Dashboard() {
       fetchMarketingIdeas(marketingCurrentPage);
     }
   }, [marketingCurrentPage]);
+
+  // Fetch case studies from Supabase
+  const fetchCaseStudies = useCallback(async () => {
+    console.log('🚀 Starting fetchCaseStudies...');
+    setCaseStudyLoading(true);
+    setCaseStudyError(null);
+    
+    try {
+      console.log('📡 Fetching from Supabase...');
+      const { data, error, count } = await supabase
+        .from('case_studies')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(itemsPerPage)
+        .range((caseStudyCurrentPage - 1) * itemsPerPage, caseStudyCurrentPage * itemsPerPage - 1);
+
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
+
+      console.log('✅ Data received:', data?.length || 0, 'case studies');
+      console.log('📊 Total count:', count);
+      console.log('📊 Raw data:', data);
+      
+      setCaseStudies(data || []);
+      setCaseStudyTotalCount(count || 0);
+      setCaseStudyTotalPages(Math.ceil((count || 0) / itemsPerPage));
+      
+      console.log('📊 Case studies state updated:', data?.length || 0, 'items');
+      
+      // If no data, show the empty state
+      if (!data || data.length === 0) {
+        console.log('📭 No case studies found, showing empty state');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching case studies:', error);
+      setCaseStudyError(error instanceof Error ? error.message : 'Failed to fetch case studies');
+    } finally {
+      console.log('🏁 Setting loading to false');
+      setCaseStudyLoading(false);
+    }
+  }, [caseStudyCurrentPage, itemsPerPage]);
+
+  // Fetch case studies when tab is active
+  useEffect(() => {
+    if (activeTab === 'case-studies') {
+      console.log('🔄 Fetching case studies...');
+      fetchCaseStudies();
+    }
+  }, [activeTab, fetchCaseStudies]);
+
+  // Fetch case studies when page changes
+  useEffect(() => {
+    if (activeTab === 'case-studies' && caseStudyCurrentPage > 1) {
+      console.log('🔄 Fetching case studies for page:', caseStudyCurrentPage);
+      fetchCaseStudies();
+    }
+  }, [caseStudyCurrentPage, activeTab, fetchCaseStudies]);
+
+  // Convert case studies to DataTable format
+  const caseStudyTableData = useMemo(() => {
+    const mappedData = caseStudies.map(study => ({
+      id: study.id,
+      title: study.title || 'Untitled Case Study',
+      subtitle: study.subtitle || '',
+      niche: study.category || 'Not Specified',
+      category: study.category || 'Not Specified',
+      market_size: [study.market_context || 'Not specified'],
+      dateGenerated: study.created_at,
+      slug: study.slug || '',
+      current_revenue: study.current_revenue || 0,
+      valuation: study.valuation || 0,
+      users_count: study.users_count || 0,
+      is_published: study.is_published || false,
+      needs_review: study.needs_review || true,
+      founder_name: study.founder_name || 'Not disclosed',
+      app_name: study.app_name || study.title || 'Not disclosed',
+      isBookmarked: caseStudyBookmarked.has(study.id)
+    }));
+
+    // Debug: Check for duplicate IDs
+    const ids = mappedData.map(item => item.id);
+    const uniqueIds = new Set(ids);
+    if (ids.length !== uniqueIds.size) {
+      console.warn('⚠️ Duplicate case study IDs detected:', ids);
+    }
+
+    return mappedData;
+  }, [caseStudies, caseStudyBookmarked]);
+
+  // Convert business ideas to DataTable format
+  const tableData = useMemo(() => {
+    return businessIdeas.map(idea => ({
+    id: idea.id,
+    title: idea.business_idea_name || idea.reddit_posts?.reddit_title || 'Untitled Business Idea',
+    niche: idea.niche || 'Not Specified',
+    category: idea.category || 'General',
+    market_size: idea.market_size || ['Unknown'],
+    dateGenerated: idea.created_at,
+    isBookmarked: bookmarkedIdeas.has(idea.id),
+    reddit_score: idea.reddit_posts?.reddit_score || 0,
+    reddit_comments: idea.reddit_posts?.reddit_comments || 0
+  }));
+  }, [businessIdeas, bookmarkedIdeas]);
+
+  // Convert marketing ideas to DataTable format
+  const marketingTableData = useMemo(() => {
+    console.log('🔖 Creating marketing table data...');
+    console.log('🔖 Marketing ideas count:', marketingIdeas.length);
+    console.log('🔖 Marketing bookmarked set:', Array.from(marketingBookmarked));
+    
+    return marketingIdeas.map(idea => {
+      const isBookmarked = marketingBookmarked.has(idea.id);
+      console.log(`🔖 Idea ${idea.id} (${idea.marketing_idea_name}): isBookmarked = ${isBookmarked}`);
+      
+      return {
+        id: idea.id,
+        title: idea.marketing_idea_name || 'Untitled Marketing Idea',
+        niche: idea.channel?.join(', ') || 'Not Specified',
+        category: idea.channel?.join(', ') || 'General',
+        market_size: idea.target_audience || ['Unknown'],
+        dateGenerated: idea.created_at,
+        isBookmarked: isBookmarked,
+        potential_impact: idea.potential_impact || 'Unknown',
+        implementation_tips: idea.implementation_tips || [],
+        success_metrics: idea.success_metrics || []
+      };
+    });
+  }, [marketingIdeas, marketingBookmarked]);
+
+  // Generate new case study from CSV
+  const generateNewCaseStudy = async () => {
+    setGeneratingCaseStudy(true);
+    showNotification('Starting case study generation...', 'info');
+    try {
+      // Read the CSV file
+      const csvResponse = await fetch('/sample-companies.csv');
+      const csvText = await csvResponse.text();
+      
+      // Parse CSV and get a random company
+      const lines = csvText.split('\n').filter(line => line.trim());
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const companies = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        const company: any = {};
+        headers.forEach((header, index) => {
+          company[header] = values[index] || '';
+        });
+        return company;
+      });
+      
+      // Get a random company
+      const randomCompany = companies[Math.floor(Math.random() * companies.length)];
+      console.log('🎲 Selected random company:', randomCompany);
+      
+      // Generate case study
+      const response = await fetch('/api/case-studies/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          person_name: randomCompany.founder_name || 'Unknown Founder',
+          company_name: randomCompany.company_name || 'Unknown Company',
+          image_url: randomCompany.logo_url || null,
+          cofounders: randomCompany.cofounders ? randomCompany.cofounders.split(',').map((c: string) => c.trim()) : []
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate case study');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showNotification('Case study generated successfully!', 'success');
+        // Refresh the case studies list
+        fetchCaseStudies();
+      } else {
+        throw new Error(result.message || 'Failed to generate case study');
+      }
+    } catch (error) {
+      console.error('Error generating case study:', error);
+      showNotification('Failed to generate case study. Please try again.', 'error');
+    } finally {
+      setGeneratingCaseStudy(false);
+    }
+  };
+
+  // Show loading state while authentication is being checked
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if user is not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
+
+  // Handle case study bookmark toggle
+  const handleCaseStudyBookmarkToggle = async (id: number) => {
+    // Implementation for case study bookmarking
+    console.log('Toggle case study bookmark:', id);
+  };
 
   const fetchBusinessIdeas = async (page: number = currentPage) => {
     setLoading(true);
@@ -975,7 +1213,116 @@ export default function Dashboard() {
     }
   };
 
-  const handleViewDetails = (item: any) => {
+  // Fetch case study details for inline view
+  const fetchCaseStudyDetails = async (slug: string) => {
+    try {
+      setCaseStudyDetailsLoading(true);
+      console.log('🔍 Fetching case study details for slug:', slug);
+      
+      // Fetch main case study data with all related data in one query
+      const { data: caseStudyData, error: caseStudyError } = await supabase
+        .from('case_studies')
+        .select(`
+          *,
+          case_study_sections (*),
+          case_study_funding (*),
+          case_study_quotes (*)
+        `)
+        .eq('slug', slug)
+        .single();
+
+      if (caseStudyError) {
+        console.error('❌ Error fetching case study:', caseStudyError);
+        throw caseStudyError;
+      }
+      
+      if (!caseStudyData) {
+        console.error('❌ Case study not found for slug:', slug);
+        throw new Error('Case study not found');
+      }
+
+      console.log('✅ Case study data fetched:', {
+        id: caseStudyData.id,
+        title: caseStudyData.title,
+        sectionsCount: caseStudyData.case_study_sections?.length || 0,
+        fundingCount: caseStudyData.case_study_funding?.length || 0,
+        quotesCount: caseStudyData.case_study_quotes?.length || 0,
+        current_revenue: caseStudyData.current_revenue,
+        valuation: caseStudyData.valuation,
+        users_count: caseStudyData.users_count,
+        starting_income: caseStudyData.starting_income,
+        founder_name: caseStudyData.founder_name,
+        app_name: caseStudyData.app_name,
+        category: caseStudyData.category,
+        market_context: caseStudyData.market_context,
+        company_url: caseStudyData.company_url,
+        raw_output: caseStudyData.raw_output
+      });
+
+      // Transform the data to match expected structure
+      const transformedData = {
+        ...caseStudyData,
+        // Use raw_output data as fallback if main fields are empty
+        current_revenue: caseStudyData.current_revenue || caseStudyData.raw_output?.current_revenue || 'Not disclosed',
+        valuation: caseStudyData.valuation || caseStudyData.raw_output?.valuation || 'Not disclosed',
+        starting_income: caseStudyData.starting_income || caseStudyData.raw_output?.starting_income || 'Not disclosed',
+        users_count: caseStudyData.users_count || caseStudyData.raw_output?.users_count || null,
+        founder_name: caseStudyData.founder_name || caseStudyData.raw_output?.founder_name || 'Not disclosed',
+        app_name: caseStudyData.app_name || caseStudyData.raw_output?.title || caseStudyData.title || 'Not disclosed',
+        category: caseStudyData.category || caseStudyData.raw_output?.category || 'Not specified',
+        market_context: caseStudyData.market_context || caseStudyData.raw_output?.market_context || 'Not specified',
+        company_url: caseStudyData.company_url || caseStudyData.raw_output?.company_url || null,
+        sections: (caseStudyData.case_study_sections || []).map((section: any) => ({
+          name: section.name,
+          emoji: section.emoji,
+          heading: section.heading,
+          body: section.body
+        })),
+        funding: (caseStudyData.case_study_funding || []).map((funding: any) => ({
+          round: funding.round_name,
+          amount: funding.amount,
+          date: funding.raised_at,
+          investors: funding.investors || [],
+          source: funding.source
+        })),
+        quotes: (caseStudyData.case_study_quotes || []).map((quote: any) => ({
+          who: quote.who,
+          quote: quote.quote
+        }))
+      };
+
+      setCaseStudyDetails(transformedData);
+      console.log('✅ Case study details set successfully:', {
+        title: transformedData.title,
+        current_revenue: transformedData.current_revenue,
+        valuation: transformedData.valuation,
+        users_count: transformedData.users_count,
+        starting_income: transformedData.starting_income,
+        founder_name: transformedData.founder_name,
+        app_name: transformedData.app_name,
+        category: transformedData.category,
+        market_context: transformedData.market_context,
+        company_url: transformedData.company_url
+      });
+
+    } catch (error) {
+      console.error('❌ Error fetching case study details:', error);
+      showNotification('Failed to load case study details', 'error');
+    } finally {
+      setCaseStudyDetailsLoading(false);
+    }
+  };
+
+  const handleViewDetails = async (item: any) => {
+    // Check if this is a case study (has slug property)
+    if (item.slug) {
+      // Show case study details inline and fetch details
+      setSelectedCaseStudy(item);
+      setShowCaseStudyDetails(true);
+      await fetchCaseStudyDetails(item.slug);
+      return;
+    }
+    
     // Find the business idea and show details modal
     const idea = businessIdeas.find(bi => bi.id === item.id);
     if (idea) {
@@ -1033,44 +1380,6 @@ export default function Dashboard() {
     }
   };
 
-  // Convert business ideas to DataTable format
-  const tableData = useMemo(() => {
-    return businessIdeas.map(idea => ({
-    id: idea.id,
-    title: idea.business_idea_name || idea.reddit_posts?.reddit_title || 'Untitled Business Idea',
-    niche: idea.niche || 'Not Specified',
-    category: idea.category || 'General',
-    market_size: idea.market_size || ['Unknown'],
-    dateGenerated: idea.created_at,
-    isBookmarked: bookmarkedIdeas.has(idea.id),
-    reddit_score: idea.reddit_posts?.reddit_score || 0,
-    reddit_comments: idea.reddit_posts?.reddit_comments || 0
-  }));
-  }, [businessIdeas, bookmarkedIdeas]);
-
-  // Convert marketing ideas to DataTable format
-  const marketingTableData = useMemo(() => {
-    console.log('🔖 Creating marketing table data...');
-    console.log('🔖 Marketing ideas count:', marketingIdeas.length);
-    console.log('🔖 Marketing bookmarked set:', Array.from(marketingBookmarked));
-    
-    return marketingIdeas.map(idea => {
-      const isBookmarked = marketingBookmarked.has(idea.id);
-      console.log(`🔖 Idea ${idea.id} (${idea.marketing_idea_name}): isBookmarked = ${isBookmarked}`);
-      
-      return {
-        id: idea.id,
-        title: idea.marketing_idea_name || idea.reddit_title || 'Untitled Marketing Idea',
-        niche: 'Marketing Strategy',
-        category: idea.category || 'Marketing',
-        market_size: [idea.potential_impact || 'Unknown'],
-        dateGenerated: idea.created_at,
-        isBookmarked: isBookmarked,
-        reddit_score: idea.reddit_score || 0,
-        reddit_comments: idea.reddit_comments || 0
-      };
-    });
-  }, [marketingIdeas, marketingBookmarked]);
 
   const generateNewIdea = async () => {
     console.log('🚀 generateNewIdea function called');
@@ -1606,20 +1915,417 @@ export default function Dashboard() {
       case 'case-studies':
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Case Studies</h1>
-                <p className="text-gray-600">Learn from successful business stories</p>
+            {/* Loading State */}
+            {caseStudyLoading && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading case studies...</p>
+                <p className="text-sm text-gray-400 mt-2">This may take a few moments</p>
               </div>
-              <button className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200">
-                Explore Cases
-              </button>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-              <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Case Studies Content</h2>
-              <p className="text-gray-600">This is where your case studies will be displayed.</p>
-            </div>
+            )}
+
+            {/* Error State */}
+            {caseStudyError && !caseStudyLoading && (
+              <div className="bg-white rounded-xl shadow-sm border border-red-100 p-8 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-red-600 text-2xl">⚠️</span>
+                </div>
+                <h2 className="text-2xl font-bold text-red-900 mb-2">Error Loading Case Studies</h2>
+                <p className="text-red-600 mb-4">{caseStudyError}</p>
+                <button 
+                  onClick={() => fetchCaseStudies()}
+                  className="bg-red-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-red-700 transition-all duration-200"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {/* Case Studies Content */}
+            {!caseStudyLoading && !caseStudyError && (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Case Studies</h2>
+                    <p className="text-gray-600 mt-1">Learn from successful business stories</p>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    {showCaseStudyDetails && (
+                      <button
+                        onClick={() => {
+                          setShowCaseStudyDetails(false);
+                          setSelectedCaseStudy(null);
+                          setCaseStudyDetails(null);
+                        }}
+                        className="flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to List
+                      </button>
+                    )}
+                    <button
+                      onClick={generateNewCaseStudy}
+                      disabled={generatingCaseStudy}
+                      className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {generatingCaseStudy ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Load Case Studies
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Case Study Details View */}
+                {showCaseStudyDetails && selectedCaseStudy && (
+                  <div className="space-y-8">
+
+                    {/* Header Section */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8">
+                      <div className="flex items-start justify-between mb-6">
+                        <div className="flex-1">
+                          {/* Company Name with Logo */}
+                          <div className="flex items-center mb-6">
+                            {caseStudyDetails?.cover_image_url || selectedCaseStudy.cover_image_url ? (
+                              <div className="w-16 h-16 rounded-xl overflow-hidden mr-4 flex-shrink-0">
+                                <img 
+                                  src={caseStudyDetails?.cover_image_url || selectedCaseStudy.cover_image_url} 
+                                  alt={`${caseStudyDetails?.app_name || selectedCaseStudy.app_name} logo`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center mr-4 flex-shrink-0">
+                                <span className="text-white font-bold text-xl">
+                                  {(caseStudyDetails?.app_name || selectedCaseStudy.app_name || 'C').charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                            <div>
+                              <h2 className="text-2xl font-bold text-gray-900">
+                                {caseStudyDetails?.app_name || selectedCaseStudy.app_name || 'Company Name'}
+                              </h2>
+                            </div>
+                          </div>
+
+                          {/* Inspiring Journey Title */}
+                          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+                            {caseStudyDetails?.title || selectedCaseStudy.title || `The Inspiring Journey of ${caseStudyDetails?.app_name || selectedCaseStudy.app_name}`}
+                          </h1>
+                          <p className="text-xl text-gray-600 mb-6 leading-relaxed">
+                            {caseStudyDetails?.subtitle || selectedCaseStudy.subtitle || `How ${caseStudyDetails?.founder_name || selectedCaseStudy.founder_name || 'the founder'} turned a vision into a groundbreaking company`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Key Metrics Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-200">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-900 mb-1">
+                            {caseStudyDetails?.current_revenue || selectedCaseStudy.current_revenue || selectedCaseStudy.raw_output?.current_revenue || 'Not disclosed'}
+                          </div>
+                          <div className="text-sm text-gray-600 font-medium">Annual Revenue</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-900 mb-1">
+                            {caseStudyDetails?.valuation || selectedCaseStudy.valuation || selectedCaseStudy.raw_output?.valuation || 'Not disclosed'}
+                          </div>
+                          <div className="text-sm text-gray-600 font-medium">Company Valuation</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-900 mb-1">
+                            {caseStudyDetails?.users_count ? caseStudyDetails.users_count.toLocaleString() : 
+                             selectedCaseStudy.users_count ? selectedCaseStudy.users_count.toLocaleString() : 
+                             selectedCaseStudy.raw_output?.users_count ? selectedCaseStudy.raw_output.users_count.toLocaleString() : 'Not disclosed'}
+                          </div>
+                          <div className="text-sm text-gray-600 font-medium">Active Users</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Company Information */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8">
+                      <h2 className="text-2xl font-bold text-gray-900 mb-6">Company Information</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <span className="text-sm font-medium text-gray-500 block mb-1">App Name</span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {caseStudyDetails?.app_name || selectedCaseStudy.app_name || selectedCaseStudy.raw_output?.title || selectedCaseStudy.title || 'Not disclosed'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500 block mb-1">Founder</span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {caseStudyDetails?.founder_name || selectedCaseStudy.founder_name || 'Not disclosed'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500 block mb-1">Category</span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {caseStudyDetails?.category || selectedCaseStudy.category || selectedCaseStudy.raw_output?.category || 'Not specified'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <span className="text-sm font-medium text-gray-500 block mb-1">Market Context</span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {caseStudyDetails?.market_context || selectedCaseStudy.market_context || 'Not specified'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500 block mb-1">Created</span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {caseStudyDetails?.created_at ? new Date(caseStudyDetails.created_at).toLocaleDateString() : 
+                               selectedCaseStudy.created_at ? new Date(selectedCaseStudy.created_at).toLocaleDateString() : 'Not available'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-gray-500 block mb-1">Company URL</span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url ? (
+                                <a href={caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
+                                  Visit Website
+                                </a>
+                              ) : 'Not available'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {caseStudyDetailsLoading ? (
+                      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading case study details...</p>
+                      </div>
+                    ) : caseStudyDetails ? (
+                      <div className="space-y-8">
+                        {caseStudyDetails.sections && caseStudyDetails.sections.length > 0 && (
+                          <div className="space-y-8">
+                            {caseStudyDetails.sections.map((section: any, index: number) => (
+                              <div key={index} className="bg-white rounded-xl border border-gray-200 p-8">
+                                <div className="flex items-start mb-6">
+                                  <div className="text-4xl mr-4 flex-shrink-0">{section.emoji}</div>
+                                  <div className="flex-1">
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                                      {section.heading}
+                                    </h3>
+                                    <div className="w-16 h-1 bg-gray-300 rounded-full"></div>
+                                  </div>
+                                </div>
+                                <div className="prose prose-lg max-w-none">
+                                  <div className="text-gray-700 leading-relaxed whitespace-pre-line text-base">
+                                    {section.body}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Funding Information */}
+                        {caseStudyDetails.funding && caseStudyDetails.funding.length > 0 && (
+                          <div className="bg-white rounded-xl border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6">Funding History</h2>
+                            <div className="space-y-4">
+                              {caseStudyDetails.funding.map((funding: any, index: number) => (
+                                <div key={index} className="p-4 border border-gray-200 rounded-lg">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <h4 className="font-semibold text-gray-900">{funding.round}</h4>
+                                      <p className="text-sm text-gray-600">{funding.source}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-lg font-bold text-gray-900">{funding.amount || 'Amount not disclosed'}</p>
+                                      <p className="text-sm text-gray-600">{funding.date || 'Date not available'}</p>
+                                    </div>
+                                  </div>
+                                  {funding.investors && funding.investors.length > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-sm text-gray-600">
+                                        <strong>Investors:</strong> {funding.investors.join(', ')}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Quotes Section */}
+                        {caseStudyDetails.quotes && caseStudyDetails.quotes.length > 0 && (
+                          <div className="bg-white rounded-xl border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6">Founder Quotes</h2>
+                            <div className="space-y-6">
+                              {caseStudyDetails.quotes.map((quote: any, index: number) => (
+                                <div key={index} className="border-l-4 border-purple-500 pl-6">
+                                  <blockquote className="text-lg text-gray-700 italic mb-2">
+                                    "{quote.quote}"
+                                  </blockquote>
+                                  <cite className="text-sm text-gray-600 font-medium">
+                                    — {quote.who}
+                                  </cite>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load case study details</h3>
+                        <p className="text-gray-500 mb-4">Unable to load detailed information for this case study.</p>
+                        <button
+                          onClick={() => {
+                            if (selectedCaseStudy?.slug) {
+                              fetchCaseStudyDetails(selectedCaseStudy.slug);
+                            }
+                          }}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Case Studies Grid */}
+                {!showCaseStudyDetails && (
+                  <>
+                    {caseStudyTableData.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {caseStudyTableData.map((study, index) => (
+                          <div
+                            key={`${study.id}-${study.slug}-${index}`}
+                            className="bg-white rounded-xl border border-gray-200 hover:border-purple-300 hover:shadow-lg transition-all duration-200 cursor-pointer group h-full flex flex-col"
+                            onClick={() => handleViewDetails({ id: study.id, slug: study.slug })}
+                          >
+                            <div className="p-6 flex flex-col h-full text-left">
+                              <div className="mb-4">
+                                <h2 className="text-lg text-gray-900 group-hover:text-gray-700 transition-colors">
+                                  {study.app_name}
+                                </h2>
+                              </div>
+                              <div className="flex-1 flex flex-col justify-center mb-6">
+                                <h3 className="text-base text-gray-800 group-hover:text-gray-600 transition-colors mb-2 line-clamp-2">
+                                  {study.subtitle || study.title}
+                                </h3>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center text-sm">
+                                  <div className="text-gray-500">
+                                    <span className="block text-xs text-gray-400 mb-1">Yearly Revenue</span>
+                                    <span className="text-gray-900">{study.current_revenue || 'Not disclosed'}</span>
+                                  </div>
+                                  <div className="text-gray-500">
+                                    <span className="block text-xs text-gray-400 mb-1">Valuation</span>
+                                    <span className="text-gray-900">{study.valuation || 'Not disclosed'}</span>
+                                  </div>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <div className="text-left">
+                                    <span className="block text-xs text-gray-400 mb-1">Founder</span>
+                                    <span className="text-sm text-gray-700">{study.founder_name}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="block text-xs text-gray-400 mb-1">Category</span>
+                                    <span className="text-sm text-gray-700">{study.niche}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No case studies yet</h3>
+                        <p className="text-gray-500 mb-4">Click "Load Case Studies" to generate some inspiring business stories</p>
+                      </div>
+                    )}
+
+                    {/* Pagination */}
+                    {caseStudyTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-6">
+                        <div className="text-sm text-gray-600">
+                          Showing {((caseStudyCurrentPage - 1) * itemsPerPage) + 1} to {Math.min(caseStudyCurrentPage * itemsPerPage, caseStudyTotalCount)} of {caseStudyTotalCount} case studies
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setCaseStudyCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={caseStudyCurrentPage === 1}
+                            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Previous
+                          </button>
+                          <div className="flex items-center space-x-1">
+                            {Array.from({ length: Math.min(5, caseStudyTotalPages) }, (_, i) => {
+                              let pageNum;
+                              if (caseStudyTotalPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (caseStudyCurrentPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (caseStudyCurrentPage >= caseStudyTotalPages - 2) {
+                                pageNum = caseStudyTotalPages - 4 + i;
+                              } else {
+                                pageNum = caseStudyCurrentPage - 2 + i;
+                              }
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setCaseStudyCurrentPage(pageNum)}
+                                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                    caseStudyCurrentPage === pageNum
+                                      ? 'bg-purple-600 text-white'
+                                      : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <button
+                            onClick={() => setCaseStudyCurrentPage(prev => Math.min(prev + 1, caseStudyTotalPages))}
+                            disabled={caseStudyCurrentPage === caseStudyTotalPages}
+                            className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </div>
         );
 
@@ -1665,124 +2371,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* NEW SIDEBAR - Hidden by default */}
-      {showBothSidebars && (
-        <div className="fixed left-0 top-0 h-full w-64 bg-gray-50 border-r border-gray-200 z-50 flex flex-col">
-          {/* Visual indicator */}
-          <div className="bg-green-500 text-white text-xs px-2 py-1 text-center font-bold">
-            NEW SIDEBAR
-          </div>
-        <div className="p-6 flex-1">
-          {/* Logo */}
-          <div className="flex items-center space-x-2 mb-8">
-            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">G</span>
-            </div>
-            <span className="text-xl font-bold">
-              <span className="text-purple-600">GOLD</span>
-              <span className="text-gray-900">MINES</span>
-            </span>
-          </div>
-
-          {/* Navigation Menu */}
-          <nav className="space-y-6">
-            {/* MAIN Section */}
-            <div>
-              <h3 className="px-3 mb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">MAIN</h3>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'dashboard'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Home className="w-5 h-5" />
-                  <span>Dashboard</span>
-                </button>
-              </div>
-            </div>
-
-            {/* IDEAS Section */}
-            <div>
-              <h3 className="px-3 mb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">IDEAS</h3>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveTab('business-ideas')}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'business-ideas'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Lightbulb className="w-5 h-5" />
-                  <span>Business Ideas</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('marketing-ideas')}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'marketing-ideas'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Megaphone className="w-5 h-5" />
-                  <span>Marketing Ideas</span>
-                  <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
-                    NEW
-                  </span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('saved-ideas')}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'saved-ideas'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Bookmark className="w-5 h-5" />
-                  <span>Saved Ideas</span>
-                  <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-600">
-                    15
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* ACCOUNT Section */}
-            <div>
-              <h3 className="px-3 mb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ACCOUNT</h3>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setActiveTab('settings')}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'settings'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Settings className="w-5 h-5" />
-                  <span>Settings</span>
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  disabled={signingOut}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span>Logout</span>
-                </button>
-                <button className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900">
-                  <Crown className="w-5 h-5" />
-                  <span>Upgrade to Pro</span>
-                </button>
-              </div>
-            </div>
-          </nav>
-        </div>
-        </div>
-      )}
 
       {/* OLD SIDEBAR - Active sidebar (always visible) */}
       <div className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-40 flex flex-col transform transition-transform duration-300 ease-in-out ${
@@ -1887,13 +2475,6 @@ export default function Dashboard() {
 
            {/* Right side: Toggle Button, Notifications & User Profile */}
            <div className="flex items-center space-x-4">
-             {/* Sidebar Toggle Button */}
-               <button 
-               onClick={() => setShowBothSidebars(!showBothSidebars)}
-               className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
-             >
-               {showBothSidebars ? 'Hide New Sidebar' : 'Show New Sidebar (Test)'}
-               </button>
              
              <div className="relative">
                <Bell className="w-6 h-6 text-gray-600 hover:text-gray-900 cursor-pointer transition-colors" />
@@ -2265,6 +2846,8 @@ export default function Dashboard() {
           </div>
         </div>
       )} */}
+
+
     </div>
   );
 }

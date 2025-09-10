@@ -59,17 +59,13 @@ export default function MarketingIdeasPage() {
   const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
   const [bookmarkLoading, setBookmarkLoading] = useState<Set<string>>(new Set());
 
-  // Check authentication using UserContext
+  // Authentication guard - redirect to login if not authenticated
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        console.log('No user found, redirecting to login');
-        router.push('/login');
-      } else {
-        console.log('User authenticated:', user.email);
-      }
+    if (!loading && !user) {
+      console.log('🚫 No user found, redirecting to login');
+      router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [loading, user, router]);
 
   const handleLogout = async () => {
     try {
@@ -104,6 +100,12 @@ export default function MarketingIdeasPage() {
     fetchSavedItems();
   }, [fetchSavedItems]);
 
+  // Load existing data on component mount
+  useEffect(() => {
+    console.log('Component mounted, loading marketing ideas...');
+    loadMarketingIdeas();
+  }, []);
+
   // Toggle bookmark
   const toggleBookmark = useCallback(async (ideaId: string) => {
     if (!user?.id) {
@@ -116,17 +118,17 @@ export default function MarketingIdeasPage() {
     setBookmarkLoading(prev => new Set(prev).add(ideaId));
     
     try {
-      const isBookmarked = bookmarkedItems.has(ideaId);
+      const isCurrentlyBookmarked = bookmarkedItems.has(ideaId);
+      
       const response = await fetch('/api/saved', {
-        method: 'POST',
+        method: isCurrentlyBookmarked ? 'DELETE' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           user_id: user.id,
-          item_type: 'marketing',
-          item_id: parseInt(ideaId),
-          action: isBookmarked ? 'remove' : 'save'
+          item_id: ideaId,
+          item_type: 'marketing'
         }),
       });
       
@@ -135,22 +137,24 @@ export default function MarketingIdeasPage() {
       if (data.success) {
         setBookmarkedItems(prev => {
           const newSet = new Set(prev);
-          if (data.action === 'saved') {
-            newSet.add(ideaId);
-            showNotification('Marketing idea has been saved to your collection', 'success');
-          } else if (data.action === 'removed') {
+          if (isCurrentlyBookmarked) {
             newSet.delete(ideaId);
-            showNotification('Marketing idea has been removed from your collection', 'info');
+          } else {
+            newSet.add(ideaId);
           }
           return newSet;
         });
+        
+        showNotification(
+          isCurrentlyBookmarked ? 'Bookmark removed' : 'Bookmark saved',
+          'success'
+        );
       } else {
-        console.error('Bookmark error:', data.message);
-        showNotification(data.message || 'Failed to save bookmark', 'error');
+        showNotification('Failed to save bookmark', 'error');
       }
-    } catch (err) {
-      console.error('Error toggling bookmark:', err);
-      showNotification('Failed to save bookmark. Please try again.', 'error');
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      showNotification('Failed to save bookmark', 'error');
     } finally {
       setBookmarkLoading(prev => {
         const newSet = new Set(prev);
@@ -159,6 +163,25 @@ export default function MarketingIdeasPage() {
       });
     }
   }, [user?.id, bookmarkedItems, showNotification]);
+
+  // Show loading state while authentication is being checked
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if user is not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
 
   // Function to fetch and analyze Reddit data with OpenAI (BATCH PROCESSING)
   const fetchRedditData = async () => {
@@ -273,24 +296,6 @@ export default function MarketingIdeasPage() {
       setMarketingIdeas([]);
     }
   };
-
-  // Load existing data on component mount
-  useEffect(() => {
-    console.log('Component mounted, loading marketing ideas...');
-    loadMarketingIdeas();
-  }, []);
-
-  // Update the loading check to be less strict
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-          <div className="text-gray-600 text-sm">Loading...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white">

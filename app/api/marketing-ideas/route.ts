@@ -47,17 +47,23 @@ const detectDuplicatePost = async (post: any, supabase: any): Promise<{ isDuplic
       }
     }
 
-    // 2. Only check for exact title matches (less aggressive)
+    // 2. Check for exact title matches by joining with reddit_posts
     const { data: existingByExactTitle, error: exactTitleError } = await supabase
       .from('marketing_ideas')
-      .select('id, reddit_title, reddit_subreddit')
-      .eq('reddit_title', post.title)
+      .select(`
+        id,
+        reddit_posts (
+          reddit_title,
+          reddit_subreddit
+        )
+      `)
+      .eq('reddit_posts.reddit_title', post.title)
       .single();
 
     if (existingByExactTitle) {
       return { 
         isDuplicate: true, 
-        reason: `Exact same title already exists in r/${existingByExactTitle.reddit_subreddit}`, 
+        reason: `Exact same title already exists in r/${existingByExactTitle.reddit_posts?.reddit_subreddit}`, 
         existingId: existingByExactTitle.id 
       };
     }
@@ -164,21 +170,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if marketing idea already exists for this Reddit post
-    const { data: existingMarketingIdea, error: checkError } = await supabase
-      .from('marketing_ideas')
-      .select('id, marketing_idea_name')
-      .eq('reddit_title', reddit_post.title)
-      .eq('reddit_author', reddit_post.author)
+    // First find the reddit post ID, then check if marketing idea exists for it
+    const { data: redditPost, error: redditPostError } = await supabase
+      .from('reddit_posts')
+      .select('id')
+      .eq('reddit_post_id', reddit_post.id)
       .single();
 
-    if (existingMarketingIdea) {
-      console.log('🚫 Marketing idea already exists for this Reddit post, skipping...');
-      return NextResponse.json({
-        success: false,
-        message: 'Marketing idea already exists for this Reddit post',
-        existing_id: existingMarketingIdea.id,
-        existing_name: existingMarketingIdea.marketing_idea_name
-      }, { status: 409 });
+    if (redditPost) {
+      const { data: existingMarketingIdea, error: checkError } = await supabase
+        .from('marketing_ideas')
+        .select('id, marketing_idea_name')
+        .eq('reddit_post_id', redditPost.id)
+        .single();
+
+      if (existingMarketingIdea) {
+        console.log('🚫 Marketing idea already exists for this Reddit post, skipping...');
+        return NextResponse.json({
+          success: false,
+          message: 'Marketing idea already exists for this Reddit post',
+          existing_id: existingMarketingIdea.id,
+          existing_name: existingMarketingIdea.marketing_idea_name
+        }, { status: 409 });
+      }
     }
 
     // First, save the Reddit post to reddit_posts table if it doesn't exist
@@ -247,15 +261,6 @@ export async function POST(request: NextRequest) {
     // Save the marketing idea to the database
     const marketingIdeaData = {
       reddit_post_id: redditPostDbId, // Use database ID, not Reddit post ID
-      reddit_title: reddit_post.title,
-      reddit_content: reddit_post.content || '',
-      reddit_author: reddit_post.author,
-      reddit_subreddit: reddit_post.subreddit,
-      reddit_score: reddit_post.score || 0,
-      reddit_comments: reddit_post.num_comments || 0,
-      reddit_url: reddit_post.url,
-      reddit_permalink: reddit_post.permalink,
-      reddit_created_utc: reddit_post.created_utc,
       marketing_idea_name: analyzedPost.marketing_idea_name,
       idea_description: analyzedPost.idea_description,
       channel: analyzedPost.channel,

@@ -7,6 +7,7 @@ import {
   Home, 
   Lightbulb, 
   Megaphone, 
+  BookOpen,
   Bookmark, 
   Settings, 
   LogOut, 
@@ -136,6 +137,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badge: marketingIsNew ? { type: 'new' as const, value: 'NEW' } : undefined,
         },
         {
+          href: '/dashboard?tab=case-studies',
+          icon: BookOpen,
+          label: 'Case Studies',
+        },
+        {
           href: '/ideas/saved',
           icon: Bookmark,
           label: 'Saved Ideas',
@@ -152,12 +158,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Settings',
         },
         {
-          href: '/',
+          href: '/logout',
           icon: LogOut,
           label: 'Logout',
         },
         {
-          href: '/',
+          href: '/upgrade',
           icon: Crown,
           label: 'Upgrade to Pro',
         },
@@ -201,17 +207,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-6">
           {navigation.map((section) => (
             <Section key={section.section} title={section.section} collapsed={collapsed}>
-              {section.items.map((item) => (
-                <SidebarItem
-                  key={item.href}
-                  href={item.href}
-                  icon={item.icon}
-                  label={item.label}
-                  isActive={pathname === item.href}
-                  badge={item.badge}
-                  collapsed={collapsed}
-                />
-              ))}
+              {section.items.map((item) => {
+                // Special handling for case studies - check if we're on a case study page
+                const isCaseStudyActive = item.href === '/dashboard?tab=case-studies' && 
+                  (pathname === '/dashboard' || pathname.startsWith('/case-studies/'));
+                
+                return (
+                  <SidebarItem
+                    key={item.href}
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    isActive={pathname === item.href || isCaseStudyActive}
+                    badge={item.badge}
+                    collapsed={collapsed}
+                  />
+                );
+              })}
             </Section>
           ))}
         </div>
