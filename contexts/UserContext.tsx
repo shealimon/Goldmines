@@ -31,6 +31,7 @@ interface UserContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  signingOut: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
@@ -43,11 +44,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      console.log('🔍 Fetching profile for user:', userId);
-      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -55,29 +55,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error('❌ Supabase error fetching profile:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        
         // If profile doesn't exist, create it
         if (error.code === 'PGRST116') {
-          console.log('🆕 Profile not found, creating new one...');
           await createUserProfile(userId);
         }
       } else {
-        console.log('✅ Profile fetched successfully:', data);
         setProfile(data);
       }
     } catch (error: unknown) {
-      console.error('🔥 Exception in fetchUserProfile:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        error: error
-      });
+      console.error('Error fetching profile:', error);
     }
   };
 
@@ -117,33 +103,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    console.log('🚀 UserProvider useEffect running...');
-    
     let mounted = true;
     
     const initializeAuth = async () => {
       try {
-        // Get initial session
-        const { data: { session } } = await supabase.auth.getSession();
+        // Get initial session with timeout
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 2000)
+        );
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
         
         if (!mounted) return;
         
-        console.log('📝 Initial session:', {
-          hasSession: !!session,
-          userId: session?.user?.id,
-          email: session?.user?.email
-        });
-        
         setUser(session?.user ?? null);
         if (session?.user) {
-          console.log('👤 User found in session, fetching profile...');
-          await fetchUserProfile(session.user.id);
+          // Fetch profile in background without blocking
+          fetchUserProfile(session.user.id).catch(console.error);
         } else {
-          console.log('❌ No user in session');
           setProfile(null);
         }
       } catch (error) {
-        console.error('❌ Error initializing auth:', error);
+        console.error('Error initializing auth:', error);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -159,15 +141,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('🔄 Auth state change:', {
-          event,
-          userId: session?.user?.id,
-          email: session?.user?.email
-        });
-        
         setUser(session?.user ?? null);
         if (session?.user) {
-          await fetchUserProfile(session.user.id);
+          // Fetch profile in background
+          fetchUserProfile(session.user.id).catch(console.error);
         } else {
           setProfile(null);
         }
@@ -208,8 +185,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (signingOut) {
+      console.log('🚪 Sign out already in progress, skipping...');
+      return;
+    }
+    
     try {
       console.log('🚪 Starting sign out process...');
+      setSigningOut(true);
       
       // Clear local state immediately
       setUser(null);
@@ -217,9 +200,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       
       // Clear local storage immediately
       if (typeof window !== 'undefined') {
-        localStorage.clear();
-        sessionStorage.clear();
-        console.log('✅ Local storage cleared');
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          console.log('✅ Local storage cleared');
+        } catch (storageError) {
+          console.error('❌ Error clearing storage:', storageError);
+          // Continue with signout even if storage clear fails
+        }
       }
       
       // Try to sign out from Supabase (with timeout)
@@ -247,12 +235,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== 'undefined') {
         // Try multiple redirect methods
         try {
-          window.location.href = '/login';
+          // Use replace to avoid back button issues
+          window.location.replace('/login');
         } catch (e) {
           try {
-            window.location.replace('/login');
+            // Fallback to href
+            window.location.href = '/login';
           } catch (e2) {
             // Last resort: reload the page to login
+            console.log('🔄 Last resort: reloading page');
             window.location.reload();
           }
         }
@@ -264,8 +255,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       // Force redirect even on error
       if (typeof window !== 'undefined') {
         try {
-          window.location.href = '/login';
+          console.log('🔄 Error fallback: redirecting to login');
+          window.location.replace('/login');
         } catch (e) {
+          console.log('🔄 Error fallback: reloading page');
           window.location.reload();
         }
       }
@@ -282,6 +275,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       user,
       profile,
       loading,
+      signingOut,
       signOut,
       refreshProfile,
       updateProfile,

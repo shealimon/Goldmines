@@ -11,3 +11,27 @@ app/login/page.tsx
 app/page.tsx
 package-lock.json
 package.json
+warning: in the working copy of 'app/api/business-ideas/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/marketing-ideas/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/saved/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/openai.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/reddit.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'supabase_schema.sql', LF will be replaced by CRLF the next time Git touches it
+app/api/business-ideas/route.ts
+app/api/case-studies/bulk-generate/route.ts
+app/api/case-studies/generate/route.ts
+app/api/case-studies/test/route.ts
+app/api/marketing-ideas/route.ts
+app/api/saved/route.ts
+app/case-studies/generate/page.tsx
+app/dashboard/case-studies/[slug]/page.tsx
+app/dashboard/page.tsx
+app/login/page.tsx
+app/page.tsx
+contexts/UserContext.tsx
+lib/openai.ts
+lib/reddit.ts
+lib/supabase.ts
+public/sample-companies.csv
+supabase_schema.sql

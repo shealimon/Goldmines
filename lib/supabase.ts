@@ -5,6 +5,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://duzyicfcmuh
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1enlpY2ZjbXVoYnd5cGR0ZWx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU5NDcyMzgsImV4cCI6MjA3MTUyMzIzOH0.DEupJkwdD-q2OqE5nu33ZK0dAHLKIV3wZazibTc6xf8'
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1enlpY2ZjbXVoYnd5cGR0ZWx6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTk0NzIzOCwiZXhwIjoyMDcxNTIzMjM4fQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8'
 
+// Check if service key is properly configured
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseServiceKey.includes('Ej8Ej8')) {
+  console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY is not properly configured. Please set it in .env.local')
+}
+
 // Only log and test connection if not in build mode
 if (typeof window !== 'undefined' || process.env.NODE_ENV === 'development') {
   console.log('Creating Supabase client with:', { supabaseUrl, supabaseAnonKey: supabaseAnonKey.substring(0, 20) + '...' })

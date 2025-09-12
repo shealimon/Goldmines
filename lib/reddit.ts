@@ -34,6 +34,60 @@ export const redditAPI = {
     };
   },
 
+  // Helper function to handle rate limiting with exponential backoff
+  async fetchWithRetry(url: string, maxRetries: number = 3): Promise<Response | null> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.status === 429) {
+          // Rate limited - wait with exponential backoff
+          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          console.log(`⏰ Rate limited (attempt ${attempt}/${maxRetries}). Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        if (!response.ok) {
+          console.log(`⚠️ HTTP error ${response.status}: ${response.statusText}`);
+          if (attempt === maxRetries) {
+            return null;
+          }
+          // Wait before retry for other errors
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+        
+        return response;
+        
+      } catch (error) {
+        console.log(`❌ Attempt ${attempt}/${maxRetries} failed:`, error instanceof Error ? error.message : String(error));
+        if (attempt === maxRetries) {
+          return null;
+        }
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    
+    return null;
+  },
+
   // New function: Get posts from a single subreddit (Top, Hot, New)
   async getPosts(subreddit: string, limit: number = POSTS_LIMIT): Promise<RedditPost[]> {
     try {
@@ -51,18 +105,10 @@ export const redditAPI = {
         console.log(`🔗 Fetching ${sortType} posts from: ${url}`);
         
         try {
-          const response = await fetch(url, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-              'Accept': 'application/json',
-              'Accept-Language': 'en-US,en;q=0.9',
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
-            }
-          });
+          const response = await this.fetchWithRetry(url);
           
-          if (!response.ok) {
-            console.log(`⚠️ Failed to fetch ${sortType} from r/${subreddit}: ${response.status} ${response.statusText}`);
+          if (!response) {
+            console.log(`⚠️ Failed to fetch ${sortType} from r/${subreddit} after retries`);
             continue;
           }
           
@@ -149,6 +195,10 @@ export const redditAPI = {
             try {
               console.log(`📥 Fetching ${sortType.toUpperCase()} posts from r/${subreddit}...`);
               
+              // Add timeout to prevent hanging
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+              
               const response = await fetch(url, {
                 headers: {
                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -156,8 +206,11 @@ export const redditAPI = {
                   'Accept-Language': 'en-US,en;q=0.9',
                   'Cache-Control': 'no-cache',
                   'Pragma': 'no-cache'
-                }
+                },
+                signal: controller.signal
               });
+              
+              clearTimeout(timeoutId);
               
               if (!response.ok) {
                 console.log(`⚠️ Failed to fetch ${sortType} from r/${subreddit}: ${response.status} ${response.statusText}`);

@@ -104,12 +104,7 @@ export async function GET(request: NextRequest) {
           id,
           marketing_idea_name,
           full_analysis,
-          category,
-          reddit_posts (
-            reddit_title,
-            reddit_author,
-            reddit_subreddit
-          )
+          reddit_post_id
         `)
         .in('id', marketingItemIds);
 
@@ -125,9 +120,9 @@ export async function GET(request: NextRequest) {
           unifiedItems.push({
             id: idea.id,
             item_type: 'marketing',
-            title: idea.marketing_idea_name || idea.reddit_posts?.[0]?.reddit_title || 'Untitled Marketing Idea',
+            title: idea.marketing_idea_name || 'Untitled Marketing Idea',
             summary: idea.full_analysis?.substring(0, 200) + '...' || 'No description available',
-            category: idea.category || 'Marketing',
+            category: 'Marketing', // Default category since column doesn't exist in DB
             saved_at: savedItem?.created_at
           });
         });

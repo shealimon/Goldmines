@@ -599,7 +599,7 @@ interface BusinessIdea {
 }
 
 export default function Dashboard() {
-  const { user, profile, loading: authLoading, signOut } = useUser();
+  const { user, profile, loading: authLoading, signingOut, signOut } = useUser();
   const { showNotification } = useNotification();
   const router = useRouter(); // Added useRouter hook
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -617,7 +617,11 @@ export default function Dashboard() {
     todayIdeas: 0,
     totalIdeas: 0,
     savedIdeas: 0,
-    caseStudies: 0
+    caseStudies: 0,
+    marketingIdeas: 0,
+    todayMarketingIdeas: 0,
+    todayCaseStudies: 0,
+    todaySavedIdeas: 0
   });
   const [yesterdayStats, setYesterdayStats] = useState({
     totalIdeas: 0,
@@ -632,7 +636,6 @@ export default function Dashboard() {
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<number>>(new Set());
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false); // Add this flag
   const [showMobileMenu, setShowMobileMenu] = useState(false); // Mobile menu state
-  const [signingOut, setSigningOut] = useState(false); // Add signing out state
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -656,6 +659,9 @@ export default function Dashboard() {
   const [caseStudyCurrentPage, setCaseStudyCurrentPage] = useState(1);
   const [caseStudyTotalPages, setCaseStudyTotalPages] = useState(1);
   const [caseStudyTotalCount, setCaseStudyTotalCount] = useState(0);
+  const caseStudyItemsPerPage = 30;
+  const [caseStudyCache, setCaseStudyCache] = useState<Map<number, any[]>>(new Map());
+  const [caseStudyDataLoaded, setCaseStudyDataLoaded] = useState(false);
   const [marketingBookmarked, setMarketingBookmarked] = useState<Set<number>>(new Set());
   const [generatingMarketingIdea, setGeneratingMarketingIdea] = useState(false);
   
@@ -664,10 +670,48 @@ export default function Dashboard() {
   const [marketingTotalPages, setMarketingTotalPages] = useState(1);
   const [marketingTotalCount, setMarketingTotalCount] = useState(0);
   const marketingItemsPerPage = 50;
+  const [marketingIdeasCache, setMarketingIdeasCache] = useState<Map<number, any[]>>(new Map());
+
+  // Fetch saved bookmarks
+  const fetchSavedBookmarks = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch(`/api/saved?user_id=${user.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const businessSavedIds = data.saved_items
+          .filter((item: any) => item.item_type === 'business')
+          .map((item: any) => item.id);
+        setBookmarkedIdeas(new Set(businessSavedIds));
+      }
+    } catch (err) {
+      console.error('Error fetching saved bookmarks:', err);
+    }
+  };
+
+  const fetchSavedMarketingBookmarks = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await fetch(`/api/saved?user_id=${user.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const marketingSavedIds = data.saved_items
+          .filter((item: any) => item.item_type === 'marketing')
+          .map((item: any) => item.item_id); // Use item_id, not id
+        setMarketingBookmarked(new Set(marketingSavedIds));
+        console.log('🔖 Loaded marketing bookmarks:', marketingSavedIds);
+      }
+    } catch (err) {
+      console.error('Error fetching saved marketing bookmarks:', err);
+    }
+  };
 
   const handleSignOut = async () => {
     console.log('🚪 Sign out button clicked');
-    setSigningOut(true);
     
     try {
       console.log('🔄 Calling signOut function...');
@@ -682,15 +726,19 @@ export default function Dashboard() {
         sessionStorage.clear();
         console.log('✅ Fallback: Storage cleared');
         
-        // Force redirect
-        window.location.href = '/login';
+        // Use router for better navigation
+        router.push('/login');
       } catch (fallbackError) {
         console.error('❌ Fallback redirect failed:', fallbackError);
-        // Last resort: reload page
+        // Last resort: use window location
+        try {
+          window.location.replace('/login');
+        } catch (windowError) {
+          console.error('❌ Window redirect failed:', windowError);
         window.location.reload();
+        }
       }
     } finally {
-      // Don't set signingOut to false if we're redirecting
       console.log('🏁 handleSignOut completed');
     }
   };
@@ -702,6 +750,137 @@ export default function Dashboard() {
       router.push('/login');
     }
   }, [authLoading, user, router]);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Fetch business ideas and marketing ideas in parallel
+      const [businessResponse, marketingResponse] = await Promise.all([
+        fetch('/api/business-ideas'),
+        fetch('/api/marketing-ideas')
+      ]);
+
+      const [businessData, marketingData] = await Promise.all([
+        businessResponse.json(),
+        marketingResponse.json()
+      ]);
+
+      // Fetch case studies separately
+      let caseStudiesData = { success: false, case_studies: [] };
+      try {
+        const caseStudiesResponse = await fetch('/api/case-studies');
+        if (caseStudiesResponse.ok) {
+          caseStudiesData = await caseStudiesResponse.json();
+        }
+      } catch (error) {
+        console.log('⚠️ Case studies API not available, using empty data');
+      }
+
+      // Fetch saved items (requires user_id)
+      let savedData = { success: false, saved_items: [] };
+      if (user?.id) {
+        try {
+          const savedResponse = await fetch(`/api/saved?user_id=${user.id}`);
+          if (savedResponse.ok) {
+            savedData = await savedResponse.json();
+          }
+        } catch (error) {
+          console.log('⚠️ Saved items API not available, using empty data');
+        }
+      }
+
+      // Calculate business ideas stats
+      let totalBusinessIdeas = 0;
+      let todayBusinessIdeas = 0;
+      if (businessData.success) {
+        const ideas = businessData.business_ideas || [];
+        // Use the total count from API instead of array length (for pagination)
+        totalBusinessIdeas = businessData.count || ideas.length;
+        todayBusinessIdeas = ideas.filter((idea: BusinessIdea) => {
+          const ideaDate = new Date(idea.created_at);
+          ideaDate.setHours(0, 0, 0, 0);
+          return ideaDate.getTime() === today.getTime();
+        }).length;
+        setRecentIdeas(ideas.slice(0, 3));
+      }
+
+      // Calculate marketing ideas stats
+      let totalMarketingIdeas = 0;
+      let todayMarketingIdeas = 0;
+      if (marketingData.success) {
+        const ideas = marketingData.marketing_ideas || [];
+        totalMarketingIdeas = ideas.length;
+        todayMarketingIdeas = ideas.filter((idea: any) => {
+          const ideaDate = new Date(idea.created_at);
+          ideaDate.setHours(0, 0, 0, 0);
+          return ideaDate.getTime() === today.getTime();
+        }).length;
+      }
+
+      // Calculate case studies stats
+      let totalCaseStudies = 0;
+      let todayCaseStudies = 0;
+      if (caseStudiesData.success) {
+        const studies = caseStudiesData.case_studies || [];
+        totalCaseStudies = studies.length;
+        todayCaseStudies = studies.filter((study: any) => {
+          const studyDate = new Date(study.created_at);
+          studyDate.setHours(0, 0, 0, 0);
+          return studyDate.getTime() === today.getTime();
+        }).length;
+      }
+
+      // Calculate saved ideas stats
+      let totalSavedIdeas = 0;
+      let todaySavedIdeas = 0;
+      if (savedData.success) {
+        const saved = savedData.saved_items || [];
+        totalSavedIdeas = saved.length;
+        todaySavedIdeas = saved.filter((item: any) => {
+          const itemDate = new Date(item.created_at);
+          itemDate.setHours(0, 0, 0, 0);
+          return itemDate.getTime() === today.getTime();
+        }).length;
+      }
+
+      // Update dashboard stats with real data
+      setDashboardStats({
+        todayIdeas: todayBusinessIdeas,
+        totalIdeas: totalBusinessIdeas,
+        savedIdeas: totalSavedIdeas,
+        caseStudies: totalCaseStudies,
+        marketingIdeas: totalMarketingIdeas,
+        todayMarketingIdeas,
+        todayCaseStudies,
+        todaySavedIdeas
+      });
+
+      // Fetch yesterday's statistics
+      const yesterdayResponse = await fetch('/api/business-ideas?stats=yesterday');
+      const yesterdayData = await yesterdayResponse.json();
+      
+      if (yesterdayData.success) {
+        setYesterdayStats(yesterdayData.statistics);
+        console.log('📊 Yesterday\'s stats loaded:', yesterdayData.statistics);
+      }
+
+      console.log('📊 Dashboard stats updated with real data:', {
+        totalBusinessIdeas,
+        totalMarketingIdeas,
+        totalCaseStudies,
+        totalSavedIdeas,
+        todayBusinessIdeas,
+        todayMarketingIdeas,
+        todayCaseStudies,
+        todaySavedIdeas
+      });
+    } catch (err) {
+      console.error('❌ Error fetching dashboard data:', err);
+    }
+  };
 
   // Fetch dashboard data when component mounts or when dashboard tab is active
   useEffect(() => {
@@ -738,15 +917,22 @@ export default function Dashboard() {
     }
   }, [activeTab]);
 
-  // Fetch marketing ideas when page changes
+  // Fetch marketing ideas when page changes (only if tab is active)
   useEffect(() => {
-    if (activeTab === 'marketing-ideas' && marketingIdeas.length > 0) {
+    if (activeTab === 'marketing-ideas' && marketingCurrentPage > 1) {
       fetchMarketingIdeas(marketingCurrentPage);
     }
-  }, [marketingCurrentPage]);
+  }, [marketingCurrentPage, activeTab]);
 
   // Fetch case studies from Supabase
   const fetchCaseStudies = useCallback(async () => {
+    // Check cache first
+    if (caseStudyCache.has(caseStudyCurrentPage)) {
+      console.log('📦 Using cached case studies for page', caseStudyCurrentPage);
+      setCaseStudies(caseStudyCache.get(caseStudyCurrentPage) || []);
+      return;
+    }
+
     console.log('🚀 Starting fetchCaseStudies...');
     setCaseStudyLoading(true);
     setCaseStudyError(null);
@@ -757,8 +943,8 @@ export default function Dashboard() {
         .from('case_studies')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(itemsPerPage)
-        .range((caseStudyCurrentPage - 1) * itemsPerPage, caseStudyCurrentPage * itemsPerPage - 1);
+        .limit(caseStudyItemsPerPage)
+        .range((caseStudyCurrentPage - 1) * caseStudyItemsPerPage, caseStudyCurrentPage * caseStudyItemsPerPage - 1);
 
       if (error) {
         console.error('❌ Supabase error:', error);
@@ -769,14 +955,19 @@ export default function Dashboard() {
       console.log('📊 Total count:', count);
       console.log('📊 Raw data:', data);
       
-      setCaseStudies(data || []);
+      const studies = data || [];
+      setCaseStudies(studies);
       setCaseStudyTotalCount(count || 0);
-      setCaseStudyTotalPages(Math.ceil((count || 0) / itemsPerPage));
+      setCaseStudyTotalPages(Math.ceil((count || 0) / caseStudyItemsPerPage));
       
-      console.log('📊 Case studies state updated:', data?.length || 0, 'items');
+      // Cache the results
+      setCaseStudyCache(prev => new Map(prev).set(caseStudyCurrentPage, studies));
+      setCaseStudyDataLoaded(true);
+      
+      console.log('📊 Case studies state updated:', studies.length, 'items');
       
       // If no data, show the empty state
-      if (!data || data.length === 0) {
+      if (studies.length === 0) {
         console.log('📭 No case studies found, showing empty state');
       }
     } catch (error) {
@@ -786,17 +977,17 @@ export default function Dashboard() {
       console.log('🏁 Setting loading to false');
       setCaseStudyLoading(false);
     }
-  }, [caseStudyCurrentPage, itemsPerPage]);
+  }, [caseStudyCurrentPage, caseStudyItemsPerPage, caseStudyCache]);
 
-  // Fetch case studies when tab is active
+  // Fetch case studies when tab is active (only if not already loaded)
   useEffect(() => {
-    if (activeTab === 'case-studies') {
-      console.log('🔄 Fetching case studies...');
+    if (activeTab === 'case-studies' && !caseStudyDataLoaded) {
+      console.log('🔄 Fetching case studies for first time...');
       fetchCaseStudies();
     }
-  }, [activeTab, fetchCaseStudies]);
+  }, [activeTab, caseStudyDataLoaded, fetchCaseStudies]);
 
-  // Fetch case studies when page changes
+  // Fetch case studies when page changes (only if tab is active)
   useEffect(() => {
     if (activeTab === 'case-studies' && caseStudyCurrentPage > 1) {
       console.log('🔄 Fetching case studies for page:', caseStudyCurrentPage);
@@ -875,65 +1066,6 @@ export default function Dashboard() {
     });
   }, [marketingIdeas, marketingBookmarked]);
 
-  // Generate new case study from CSV
-  const generateNewCaseStudy = async () => {
-    setGeneratingCaseStudy(true);
-    showNotification('Starting case study generation...', 'info');
-    try {
-      // Read the CSV file
-      const csvResponse = await fetch('/sample-companies.csv');
-      const csvText = await csvResponse.text();
-      
-      // Parse CSV and get a random company
-      const lines = csvText.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-      const companies = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-        const company: any = {};
-        headers.forEach((header, index) => {
-          company[header] = values[index] || '';
-        });
-        return company;
-      });
-      
-      // Get a random company
-      const randomCompany = companies[Math.floor(Math.random() * companies.length)];
-      console.log('🎲 Selected random company:', randomCompany);
-      
-      // Generate case study
-      const response = await fetch('/api/case-studies/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          person_name: randomCompany.founder_name || 'Unknown Founder',
-          company_name: randomCompany.company_name || 'Unknown Company',
-          image_url: randomCompany.logo_url || null,
-          cofounders: randomCompany.cofounders ? randomCompany.cofounders.split(',').map((c: string) => c.trim()) : []
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to generate case study');
-      }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        showNotification('Case study generated successfully!', 'success');
-        // Refresh the case studies list
-        fetchCaseStudies();
-      } else {
-        throw new Error(result.message || 'Failed to generate case study');
-      }
-    } catch (error) {
-      console.error('Error generating case study:', error);
-      showNotification('Failed to generate case study. Please try again.', 'error');
-    } finally {
-      setGeneratingCaseStudy(false);
-    }
-  };
 
   // Show loading state while authentication is being checked
   if (authLoading) {
@@ -986,6 +1118,13 @@ export default function Dashboard() {
   };
 
   const fetchMarketingIdeas = async (page: number = marketingCurrentPage) => {
+    // Check cache first
+    if (marketingIdeasCache.has(page)) {
+      console.log('📦 Using cached marketing ideas for page', page);
+      setMarketingIdeas(marketingIdeasCache.get(page) || []);
+      return;
+    }
+
     setMarketingLoading(true);
     setMarketingError(null);
     
@@ -994,13 +1133,20 @@ export default function Dashboard() {
       const data = await response.json();
       
       if (data.success) {
-        setMarketingIdeas(data.marketing_ideas || []);
+        const ideas = data.marketing_ideas || [];
+        setMarketingIdeas(ideas);
         setMarketingTotalCount(data.count || 0);
         setMarketingTotalPages(Math.ceil((data.count || 0) / marketingItemsPerPage));
-        console.log('✅ Marketing ideas fetched:', data.marketing_ideas?.length || 0, 'of', data.count || 0);
         
-        // Fetch saved bookmarks after loading marketing ideas
-        await fetchSavedMarketingBookmarks();
+        // Cache the results
+        setMarketingIdeasCache(prev => new Map(prev).set(page, ideas));
+        
+        console.log('✅ Marketing ideas fetched:', ideas.length, 'of', data.count || 0);
+        
+        // Fetch saved bookmarks in parallel (non-blocking)
+        fetchSavedMarketingBookmarks().catch(err => 
+          console.error('❌ Error fetching marketing bookmarks:', err)
+        );
       } else {
         setMarketingError(data.message || 'Failed to fetch marketing ideas');
         console.error('❌ Marketing API error:', data.message);
@@ -1010,85 +1156,6 @@ export default function Dashboard() {
       console.error('❌ Marketing fetch error:', err);
     } finally {
       setMarketingLoading(false);
-    }
-  };
-
-  const fetchDashboardData = async () => {
-    try {
-      // Fetch business ideas for stats
-      const response = await fetch('/api/business-ideas');
-      const data = await response.json();
-      
-      if (data.success) {
-        const ideas = data.business_ideas || [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const todayIdeas = ideas.filter((idea: BusinessIdea) => {
-          const ideaDate = new Date(idea.created_at);
-          ideaDate.setHours(0, 0, 0, 0);
-          return ideaDate.getTime() === today.getTime();
-        }).length;
-
-        setDashboardStats({
-          todayIdeas,
-          totalIdeas: ideas.length,
-          savedIdeas: Math.floor(ideas.length * 0.2), // 20% saved rate estimate
-          caseStudies: Math.floor(ideas.length * 0.15) // 15% case studies estimate
-        });
-
-        // Get recent ideas for activity feed
-        setRecentIdeas(ideas.slice(0, 3));
-      }
-
-      // Fetch yesterday's statistics
-      const yesterdayResponse = await fetch('/api/business-ideas?stats=yesterday');
-      const yesterdayData = await yesterdayResponse.json();
-      
-      if (yesterdayData.success) {
-        setYesterdayStats(yesterdayData.statistics);
-        console.log('📊 Yesterday\'s stats loaded:', yesterdayData.statistics);
-      }
-    } catch (err) {
-      console.error('❌ Error fetching dashboard data:', err);
-    }
-  };
-
-  // Fetch saved bookmarks
-  const fetchSavedBookmarks = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const response = await fetch(`/api/saved?user_id=${user.id}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        const businessSavedIds = data.saved_items
-          .filter((item: any) => item.item_type === 'business')
-          .map((item: any) => item.id);
-        setBookmarkedIdeas(new Set(businessSavedIds));
-      }
-    } catch (err) {
-      console.error('Error fetching saved bookmarks:', err);
-    }
-  };
-
-  const fetchSavedMarketingBookmarks = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const response = await fetch(`/api/saved?user_id=${user.id}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        const marketingSavedIds = data.saved_items
-          .filter((item: any) => item.item_type === 'marketing')
-          .map((item: any) => item.item_id); // Use item_id, not id
-        setMarketingBookmarked(new Set(marketingSavedIds));
-        console.log('🔖 Loaded marketing bookmarks:', marketingSavedIds);
-      }
-    } catch (err) {
-      console.error('Error fetching saved marketing bookmarks:', err);
     }
   };
 
@@ -1217,52 +1284,25 @@ export default function Dashboard() {
   const fetchCaseStudyDetails = async (slug: string) => {
     try {
       setCaseStudyDetailsLoading(true);
-      console.log('🔍 Fetching case study details for slug:', slug);
       
-      // Fetch main case study data with all related data in one query
+      // Fetch only essential case study data first for faster initial load
       const { data: caseStudyData, error: caseStudyError } = await supabase
         .from('case_studies')
-        .select(`
-          *,
-          case_study_sections (*),
-          case_study_funding (*),
-          case_study_quotes (*)
-        `)
+        .select('*')
         .eq('slug', slug)
         .single();
 
       if (caseStudyError) {
-        console.error('❌ Error fetching case study:', caseStudyError);
         throw caseStudyError;
       }
       
       if (!caseStudyData) {
-        console.error('❌ Case study not found for slug:', slug);
         throw new Error('Case study not found');
       }
 
-      console.log('✅ Case study data fetched:', {
-        id: caseStudyData.id,
-        title: caseStudyData.title,
-        sectionsCount: caseStudyData.case_study_sections?.length || 0,
-        fundingCount: caseStudyData.case_study_funding?.length || 0,
-        quotesCount: caseStudyData.case_study_quotes?.length || 0,
-        current_revenue: caseStudyData.current_revenue,
-        valuation: caseStudyData.valuation,
-        users_count: caseStudyData.users_count,
-        starting_income: caseStudyData.starting_income,
-        founder_name: caseStudyData.founder_name,
-        app_name: caseStudyData.app_name,
-        category: caseStudyData.category,
-        market_context: caseStudyData.market_context,
-        company_url: caseStudyData.company_url,
-        raw_output: caseStudyData.raw_output
-      });
-
-      // Transform the data to match expected structure
-      const transformedData = {
+      // Set basic data immediately for faster UI update
+      const basicData = {
         ...caseStudyData,
-        // Use raw_output data as fallback if main fields are empty
         current_revenue: caseStudyData.current_revenue || caseStudyData.raw_output?.current_revenue || 'Not disclosed',
         valuation: caseStudyData.valuation || caseStudyData.raw_output?.valuation || 'Not disclosed',
         starting_income: caseStudyData.starting_income || caseStudyData.raw_output?.starting_income || 'Not disclosed',
@@ -1272,41 +1312,57 @@ export default function Dashboard() {
         category: caseStudyData.category || caseStudyData.raw_output?.category || 'Not specified',
         market_context: caseStudyData.market_context || caseStudyData.raw_output?.market_context || 'Not specified',
         company_url: caseStudyData.company_url || caseStudyData.raw_output?.company_url || null,
-        sections: (caseStudyData.case_study_sections || []).map((section: any) => ({
+        sections: [],
+        funding: [],
+        quotes: []
+      };
+
+      setCaseStudyDetails(basicData);
+
+      // Fetch additional data in parallel for better performance
+      const [sectionsResult, fundingResult, quotesResult] = await Promise.all([
+        supabase
+          .from('case_study_sections')
+          .select('*')
+          .eq('case_study_id', caseStudyData.id)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('case_study_funding')
+          .select('*')
+          .eq('case_study_id', caseStudyData.id)
+          .order('raised_at', { ascending: false }),
+        supabase
+          .from('case_study_quotes')
+          .select('*')
+          .eq('case_study_id', caseStudyData.id)
+      ]);
+
+      // Update with additional data
+      const updatedData = {
+        ...basicData,
+        sections: (sectionsResult.data || []).map((section: any) => ({
           name: section.name,
           emoji: section.emoji,
           heading: section.heading,
           body: section.body
         })),
-        funding: (caseStudyData.case_study_funding || []).map((funding: any) => ({
+        funding: (fundingResult.data || []).map((funding: any) => ({
           round: funding.round_name,
           amount: funding.amount,
           date: funding.raised_at,
           investors: funding.investors || [],
           source: funding.source
         })),
-        quotes: (caseStudyData.case_study_quotes || []).map((quote: any) => ({
+        quotes: (quotesResult.data || []).map((quote: any) => ({
           who: quote.who,
           quote: quote.quote
         }))
       };
 
-      setCaseStudyDetails(transformedData);
-      console.log('✅ Case study details set successfully:', {
-        title: transformedData.title,
-        current_revenue: transformedData.current_revenue,
-        valuation: transformedData.valuation,
-        users_count: transformedData.users_count,
-        starting_income: transformedData.starting_income,
-        founder_name: transformedData.founder_name,
-        app_name: transformedData.app_name,
-        category: transformedData.category,
-        market_context: transformedData.market_context,
-        company_url: transformedData.company_url
-      });
+      setCaseStudyDetails(updatedData);
 
     } catch (error) {
-      console.error('❌ Error fetching case study details:', error);
+      console.error('Error fetching case study details:', error);
       showNotification('Failed to load case study details', 'error');
     } finally {
       setCaseStudyDetailsLoading(false);
@@ -1383,6 +1439,13 @@ export default function Dashboard() {
 
   const generateNewIdea = async () => {
     console.log('🚀 generateNewIdea function called');
+    
+    // Prevent multiple simultaneous calls
+    if (generatingIdea) {
+      console.log('⚠️ generateNewIdea already in progress, skipping...');
+      return;
+    }
+    
     setGeneratingIdea(true);
     try {
       console.log('🚀 Starting to generate new business ideas...');
@@ -1414,9 +1477,18 @@ export default function Dashboard() {
           showNotification(`Successfully analyzed and saved ${data.business_ideas_saved || 0} new business ideas!`, 'success');
         }, 1000);
         
-        // Fetch data in background
+        // Fetch data in background with error handling
+        try {
         await fetchBusinessIdeas(1);
+        } catch (fetchError) {
+          console.error('❌ Error fetching business ideas:', fetchError);
+        }
+        
+        try {
         await fetchDashboardData();
+        } catch (dashboardError) {
+          console.error('❌ Error fetching dashboard data:', dashboardError);
+        }
         
         console.log('✅ generateNewIdea completed successfully');
       } else {
@@ -1434,6 +1506,14 @@ export default function Dashboard() {
   };
 
   const generateNewMarketingIdea = async () => {
+    console.log('🚀 generateNewMarketingIdea function called');
+    
+    // Prevent multiple simultaneous calls
+    if (generatingMarketingIdea) {
+      console.log('⚠️ generateNewMarketingIdea already in progress, skipping...');
+      return;
+    }
+    
     setGeneratingMarketingIdea(true);
     try {
       console.log('🚀 Starting to generate new marketing ideas...');
@@ -1455,19 +1535,35 @@ export default function Dashboard() {
       console.log('📡 API response data:', data);
       
       if (data.success) {
-        // Refresh marketing ideas data - go to first page to show new ideas
+        console.log('✅ API call successful, refreshing data...');
+        // Clear cache and refresh marketing ideas data - go to first page to show new ideas
+        setMarketingIdeasCache(new Map());
         setMarketingCurrentPage(1);
+        
+        // Fetch data in background with error handling
+        try {
         await fetchMarketingIdeas(1);
+        } catch (fetchError) {
+          console.error('❌ Error fetching marketing ideas:', fetchError);
+        }
+        
+        try {
         await fetchDashboardData();
+        } catch (dashboardError) {
+          console.error('❌ Error fetching dashboard data:', dashboardError);
+        }
         
         showNotification(`Successfully analyzed and saved ${data.marketing_ideas_saved || 0} new marketing ideas!`, 'success');
+        console.log('✅ generateNewMarketingIdea completed successfully');
       } else {
+        console.log('❌ API call failed:', data.message);
         showNotification(data.message || 'Failed to generate new marketing ideas', 'error');
       }
     } catch (err) {
       console.error('❌ Error generating marketing ideas:', err);
       showNotification('Failed to generate new marketing ideas. Please try again.', 'error');
     } finally {
+      console.log('🏁 Setting generatingMarketingIdea to false');
       setGeneratingMarketingIdea(false);
     }
   };
@@ -1475,36 +1571,36 @@ export default function Dashboard() {
   // Real data for dashboard stats
   const stats = [
     {
-      title: "Today's Ideas",
-      value: dashboardStats.todayIdeas.toString(),
+      title: "Business Ideas",
+      value: dashboardStats.totalIdeas.toString(),
       change: dashboardStats.todayIdeas > 0 ? `+${dashboardStats.todayIdeas}` : "0",
       trend: dashboardStats.todayIdeas > 0 ? 'up' : 'neutral',
       color: dashboardStats.todayIdeas > 0 ? 'text-green-600' : 'text-gray-600',
-      icon: TrendingUp
-    },
-    {
-      title: "Total Ideas",
-      value: dashboardStats.totalIdeas.toString(),
-      change: dashboardStats.totalIdeas > 0 ? `+${dashboardStats.totalIdeas}` : "0",
-      trend: dashboardStats.totalIdeas > 0 ? 'up' : 'neutral',
-      color: dashboardStats.totalIdeas > 0 ? 'text-blue-600' : 'text-gray-600',
       icon: Lightbulb
     },
     {
-      title: "Saved Ideas",
-      value: dashboardStats.savedIdeas.toString(),
-      change: dashboardStats.savedIdeas > 0 ? `+${dashboardStats.savedIdeas}` : "0",
-      trend: dashboardStats.savedIdeas > 0 ? 'up' : 'neutral',
-      color: dashboardStats.savedIdeas > 0 ? 'text-purple-600' : 'text-gray-600',
-      icon: Bookmark
+      title: "Marketing Ideas",
+      value: dashboardStats.marketingIdeas?.toString() || "0",
+      change: dashboardStats.todayMarketingIdeas > 0 ? `+${dashboardStats.todayMarketingIdeas}` : "0",
+      trend: dashboardStats.todayMarketingIdeas > 0 ? 'up' : 'neutral',
+      color: dashboardStats.todayMarketingIdeas > 0 ? 'text-blue-600' : 'text-gray-600',
+      icon: Megaphone
     },
     {
       title: "Case Studies",
       value: dashboardStats.caseStudies.toString(),
-      change: dashboardStats.caseStudies > 0 ? `+${dashboardStats.caseStudies}` : "0",
-      trend: dashboardStats.caseStudies > 0 ? 'up' : 'neutral',
-      color: dashboardStats.caseStudies > 0 ? 'text-orange-600' : 'text-gray-600',
+      change: dashboardStats.todayCaseStudies > 0 ? `+${dashboardStats.todayCaseStudies}` : "0",
+      trend: dashboardStats.todayCaseStudies > 0 ? 'up' : 'neutral',
+      color: dashboardStats.todayCaseStudies > 0 ? 'text-orange-600' : 'text-gray-600',
       icon: BookOpen
+    },
+    {
+      title: "Saved Ideas",
+      value: dashboardStats.savedIdeas.toString(),
+      change: dashboardStats.todaySavedIdeas > 0 ? `+${dashboardStats.todaySavedIdeas}` : "0",
+      trend: dashboardStats.todaySavedIdeas > 0 ? 'up' : 'neutral',
+      color: dashboardStats.todaySavedIdeas > 0 ? 'text-purple-600' : 'text-gray-600',
+      icon: Bookmark
     }
   ];
 
@@ -1535,18 +1631,26 @@ export default function Dashboard() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats.map((stat, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                  <h3 className="text-sm font-medium text-gray-500">{stat.title}</h3>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-3xl font-bold text-gray-900">{stat.value}</span>
-                    <span className={`text-sm font-semibold flex items-center ${stat.color}`}>
-                      {stat.trend === 'up' ? <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
-                      {stat.change}
-                    </span>
+              {stats.map((stat, index) => {
+                const IconComponent = stat.icon;
+                return (
+                  <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-500">{stat.title}</h3>
+                      <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <IconComponent className="w-4 h-4 text-gray-600" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-3xl font-bold text-gray-900">{stat.value}</span>
+                      <span className={`text-sm font-semibold flex items-center ${stat.color}`}>
+                        {stat.trend === 'up' ? <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
+                        {stat.change}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Charts Section */}
@@ -1966,25 +2070,6 @@ export default function Dashboard() {
                         Back to List
                       </button>
                     )}
-                    <button
-                      onClick={generateNewCaseStudy}
-                      disabled={generatingCaseStudy}
-                      className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {generatingCaseStudy ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Load Case Studies
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
 
@@ -1996,28 +2081,22 @@ export default function Dashboard() {
                     <div className="bg-white rounded-xl border border-gray-200 p-8">
                       <div className="flex items-start justify-between mb-6">
                         <div className="flex-1">
-                          {/* Company Name with Logo */}
-                          <div className="flex items-center mb-6">
-                            {caseStudyDetails?.cover_image_url || selectedCaseStudy.cover_image_url ? (
-                              <div className="w-16 h-16 rounded-xl overflow-hidden mr-4 flex-shrink-0">
-                                <img 
-                                  src={caseStudyDetails?.cover_image_url || selectedCaseStudy.cover_image_url} 
-                                  alt={`${caseStudyDetails?.app_name || selectedCaseStudy.app_name} logo`}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center mr-4 flex-shrink-0">
-                                <span className="text-white font-bold text-xl">
-                                  {(caseStudyDetails?.app_name || selectedCaseStudy.app_name || 'C').charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-                            <div>
-                              <h2 className="text-2xl font-bold text-gray-900">
-                                {caseStudyDetails?.app_name || selectedCaseStudy.app_name || 'Company Name'}
-                              </h2>
-                            </div>
+                          {/* Company Name */}
+                          <div className="mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900">
+                              {caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url ? (
+                                <a 
+                                  href={caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                                >
+                                  {caseStudyDetails?.app_name || selectedCaseStudy.app_name || 'Company Name'}
+                                </a>
+                              ) : (
+                                caseStudyDetails?.app_name || selectedCaseStudy.app_name || 'Company Name'
+                              )}
+                            </h2>
                           </div>
 
                           {/* Inspiring Journey Title */}
@@ -2063,7 +2142,18 @@ export default function Dashboard() {
                           <div>
                             <span className="text-sm font-medium text-gray-500 block mb-1">App Name</span>
                             <span className="text-lg font-semibold text-gray-900">
-                              {caseStudyDetails?.app_name || selectedCaseStudy.app_name || selectedCaseStudy.raw_output?.title || selectedCaseStudy.title || 'Not disclosed'}
+                              {caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url ? (
+                                <a 
+                                  href={caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                                >
+                                  {caseStudyDetails?.app_name || selectedCaseStudy.app_name || selectedCaseStudy.raw_output?.title || selectedCaseStudy.title || 'Not disclosed'}
+                                </a>
+                              ) : (
+                                caseStudyDetails?.app_name || selectedCaseStudy.app_name || selectedCaseStudy.raw_output?.title || selectedCaseStudy.title || 'Not disclosed'
+                              )}
                             </span>
                           </div>
                           <div>
@@ -2072,20 +2162,8 @@ export default function Dashboard() {
                               {caseStudyDetails?.founder_name || selectedCaseStudy.founder_name || 'Not disclosed'}
                             </span>
                           </div>
-                          <div>
-                            <span className="text-sm font-medium text-gray-500 block mb-1">Category</span>
-                            <span className="text-lg font-semibold text-gray-900">
-                              {caseStudyDetails?.category || selectedCaseStudy.category || selectedCaseStudy.raw_output?.category || 'Not specified'}
-                            </span>
-                          </div>
                         </div>
                         <div className="space-y-4">
-                          <div>
-                            <span className="text-sm font-medium text-gray-500 block mb-1">Market Context</span>
-                            <span className="text-lg font-semibold text-gray-900">
-                              {caseStudyDetails?.market_context || selectedCaseStudy.market_context || 'Not specified'}
-                            </span>
-                          </div>
                           <div>
                             <span className="text-sm font-medium text-gray-500 block mb-1">Created</span>
                             <span className="text-lg font-semibold text-gray-900">
@@ -2094,13 +2172,9 @@ export default function Dashboard() {
                             </span>
                           </div>
                           <div>
-                            <span className="text-sm font-medium text-gray-500 block mb-1">Company URL</span>
+                            <span className="text-sm font-medium text-gray-500 block mb-1">Category</span>
                             <span className="text-lg font-semibold text-gray-900">
-                              {caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url ? (
-                                <a href={caseStudyDetails?.company_url || selectedCaseStudy.company_url || selectedCaseStudy.raw_output?.company_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
-                                  Visit Website
-                                </a>
-                              ) : 'Not available'}
+                              {caseStudyDetails?.category || selectedCaseStudy.category || selectedCaseStudy.raw_output?.category || 'Not specified'}
                             </span>
                           </div>
                         </div>
@@ -2275,7 +2349,7 @@ export default function Dashboard() {
                     {caseStudyTotalPages > 1 && (
                       <div className="flex items-center justify-between mt-6">
                         <div className="text-sm text-gray-600">
-                          Showing {((caseStudyCurrentPage - 1) * itemsPerPage) + 1} to {Math.min(caseStudyCurrentPage * itemsPerPage, caseStudyTotalCount)} of {caseStudyTotalCount} case studies
+                          Showing {((caseStudyCurrentPage - 1) * caseStudyItemsPerPage) + 1} to {Math.min(caseStudyCurrentPage * caseStudyItemsPerPage, caseStudyTotalCount)} of {caseStudyTotalCount} case studies
                         </div>
                         <div className="flex items-center space-x-2">
                           <button
@@ -2511,7 +2585,6 @@ export default function Dashboard() {
                    <button 
                      onClick={() => {
                        setShowUserDropdown(false);
-                       setSigningOut(true);
                        signOut();
                      }}
                      className="flex items-center space-x-2 w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 transition-colors"

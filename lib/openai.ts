@@ -561,80 +561,65 @@ const parseSingleIdea = (text: string) => {
 
 // Parse marketing response function
 const parseMarketingResponse = (text: string) => {
-  const extractSection = (text: string, sectionName: string): string[] => {
-    const sectionStart = text.indexOf(sectionName + ':');
-    if (sectionStart === -1) {
-      return [];
+  // Split the text into sections using regex to find all section headers
+  const sectionRegex = /(Marketing Idea Name:|Idea Description:|Channel:|Target Audience:|Potential Impact:|Implementation Tips:|Success Metrics:|Full Analysis:)/g;
+  const sections: { [key: string]: string } = {};
+  
+  let lastIndex = 0;
+  let match;
+  const sectionHeaders: string[] = [];
+  
+  // Find all section headers and their positions
+  while ((match = sectionRegex.exec(text)) !== null) {
+    sectionHeaders.push(match[1]);
+  }
+  
+  // Extract content for each section
+  for (let i = 0; i < sectionHeaders.length; i++) {
+    const sectionName = sectionHeaders[i];
+    const sectionStart = text.indexOf(sectionName);
+    
+    if (sectionStart !== -1) {
+      const contentStart = sectionStart + sectionName.length;
+      const nextSectionStart = i < sectionHeaders.length - 1 
+        ? text.indexOf(sectionHeaders[i + 1])
+        : text.length;
+      
+      const sectionContent = text.substring(contentStart, nextSectionStart).trim();
+      sections[sectionName] = sectionContent;
     }
+  }
+
+  const extractBulletPoints = (content: string): string[] => {
+    if (!content) return [];
     
-    const sectionNames = [
-      'Marketing Idea Name:', 'Idea Description:', 'Channel:', 'Target Audience:',
-      'Potential Impact:', 'Implementation Tips:', 'Success Metrics:', 'Full Analysis:'
-    ];
-    
-    let sectionEnd = text.length;
-    const remainingText = text.substring(sectionStart + sectionName.length + 1);
-    
-    for (const nextSection of sectionNames) {
-      if (nextSection === sectionName + ':') continue;
-      const nextSectionIndex = remainingText.indexOf(nextSection);
-      if (nextSectionIndex !== -1) {
-        sectionEnd = sectionStart + sectionName.length + 1 + nextSectionIndex;
-        break;
-      }
-    }
-    
-    const sectionContent = text.substring(sectionStart + sectionName.length + 1, sectionEnd);
-    const lines = sectionContent.split('\n');
-    const bulletPoints = lines
+    const lines = content.split('\n');
+    return lines
       .map(line => line.trim())
       .filter(line => line.startsWith('-'))
       .map(line => line.substring(1).trim())
       .filter(line => line.length > 0);
-    
-    return bulletPoints;
   };
 
-  const extractSingleLine = (text: string, sectionName: string): string => {
-    const sectionStart = text.indexOf(sectionName + ':');
-    if (sectionStart !== -1) {
-      const sectionNames = [
-        'Marketing Idea Name:', 'Idea Description:', 'Channel:', 'Target Audience:',
-        'Potential Impact:', 'Implementation Tips:', 'Success Metrics:', 'Full Analysis:'
-      ];
-      
-      let sectionEnd = text.length;
-      const remainingText = text.substring(sectionStart + sectionName.length + 1);
-      
-      for (const nextSection of sectionNames) {
-        if (nextSection === sectionName + ':') continue;
-        const nextSectionIndex = remainingText.indexOf(nextSection);
-        if (nextSectionIndex !== -1) {
-          sectionEnd = sectionStart + sectionName.length + 1 + nextSectionIndex;
-          break;
-        }
-      }
-      
-      const sectionContent = text.substring(sectionStart + sectionName.length + 1, sectionEnd);
-      const firstLine = sectionContent.split('\n')[0].trim();
-      
-      if (firstLine && firstLine.length > 0) {
-        return firstLine.replace(/^\[|\]$/g, '').trim();
-      }
-    }
+  const extractSingleValue = (content: string): string => {
+    if (!content) return '';
     
+    const firstLine = content.split('\n')[0].trim();
+    if (firstLine && firstLine.length > 0) {
+      return firstLine.replace(/^\[|\]$/g, '').trim();
+    }
     return '';
   };
 
   try {
-    const marketingIdeaName = extractSingleLine(text, 'Marketing Idea Name');
-    const ideaDescription = extractSingleLine(text, 'Idea Description');
-    const channel = extractSection(text, 'Channel');
-    const targetAudience = extractSection(text, 'Target Audience');
-    const potentialImpact = extractSingleLine(text, 'Potential Impact') as 'High' | 'Medium' | 'Low';
-    const implementationTips = extractSection(text, 'Implementation Tips');
-    const successMetrics = extractSection(text, 'Success Metrics');
-    const fullAnalysis = extractSingleLine(text, 'Full Analysis');
+    const marketingIdeaName = extractSingleValue(sections['Marketing Idea Name:']);
+    const ideaDescription = extractSingleValue(sections['Idea Description:']);
+    const channel = extractBulletPoints(sections['Channel:']);
+    const targetAudience = extractBulletPoints(sections['Target Audience:']);
+    const potentialImpact = extractSingleValue(sections['Potential Impact:']) as 'High' | 'Medium' | 'Low';
+    const implementationTips = extractBulletPoints(sections['Implementation Tips:']);
+    const successMetrics = extractBulletPoints(sections['Success Metrics:']);
+    const fullAnalysis = extractSingleValue(sections['Full Analysis:']);
 
     // Clean up marketing idea name - remove quotes from beginning
     let cleanMarketingIdeaName = marketingIdeaName;

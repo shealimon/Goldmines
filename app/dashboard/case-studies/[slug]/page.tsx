@@ -176,8 +176,16 @@ export default function CaseStudyDetailPage() {
             
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">{caseStudy.title}</h1>
-                <p className="text-xl text-gray-600 mb-4">{caseStudy.subtitle}</p>
+                {/* Logo and Title */}
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center mr-4 flex-shrink-0">
+                    <span className="text-white font-bold text-lg">G</span>
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold text-gray-900 mb-1">{caseStudy.title}</h1>
+                    <p className="text-xl text-gray-600">{caseStudy.subtitle}</p>
+                  </div>
+                </div>
                 
                 <div className="flex items-center space-x-6 text-sm text-gray-500">
                   <div className="flex items-center">

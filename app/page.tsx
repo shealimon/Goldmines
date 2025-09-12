@@ -3,6 +3,8 @@
 import { Inter } from 'next/font/google';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
 import { ArrowRight, Sparkles, TrendingUp, Target, Users, Zap, CheckCircle, Star, Globe, FileText, Lightbulb, BarChart3, BookOpen, Home, Megaphone, Bookmark, User, Search, Bell, ChevronDown, Crown, LogOut, RefreshCw, Settings, HelpCircle, CreditCard, BarChart, PieChart, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
 
 const inter = Inter({
@@ -94,6 +96,15 @@ function AnimatedText() {
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+  const { user, loading } = useUser();
+
+  // Redirect to dashboard if user is already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
   
   return (
     <div className="min-h-screen bg-white">

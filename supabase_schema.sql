@@ -74,6 +74,22 @@ CREATE TABLE marketing_ideas (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create profiles table for user profiles
+CREATE TABLE profiles (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT,
+    display_name TEXT,
+    avatar_url TEXT,
+    api_credits INTEGER DEFAULT 1000,
+    plan_type VARCHAR(50) DEFAULT 'free',
+    credits_used_today INTEGER DEFAULT 0,
+    last_credit_reset DATE DEFAULT CURRENT_DATE,
+    subscription_status TEXT,
+    subscription_plan TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create saved_items table for bookmarking business and marketing ideas
 CREATE TABLE saved_items (
     id SERIAL PRIMARY KEY,
@@ -93,6 +109,8 @@ CREATE INDEX idx_reddit_posts_created_at ON reddit_posts(created_at);
 CREATE INDEX idx_business_ideas_reddit_post_id ON business_ideas(reddit_post_id);
 CREATE INDEX idx_business_ideas_status ON business_ideas(analysis_status);
 CREATE INDEX idx_business_ideas_created_at ON business_ideas(created_at);
+CREATE INDEX idx_profiles_user_id ON profiles(user_id);
+CREATE INDEX idx_profiles_plan_type ON profiles(plan_type);
 CREATE INDEX idx_saved_items_user ON saved_items(user_id);
 CREATE INDEX idx_saved_items_type ON saved_items(item_type);
 CREATE INDEX idx_saved_items_item ON saved_items(item_id);
@@ -124,7 +142,12 @@ CREATE TRIGGER update_marketing_ideas_updated_at
     BEFORE UPDATE ON marketing_ideas 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_profiles_updated_at 
+    BEFORE UPDATE ON profiles 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Grant necessary permissions (no RLS - unrestricted like other tables)
+GRANT ALL ON profiles TO authenticated;
 GRANT ALL ON saved_items TO authenticated;
 GRANT USAGE ON SEQUENCE saved_items_id_seq TO authenticated;
 

@@ -28,7 +28,7 @@ function LoginForm() {
         
         // Quick timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth check timeout')), 1000)
+          setTimeout(() => reject(new Error('Auth check timeout')), 1500)
         );
         
         const authPromise = supabase.auth.getSession();
@@ -57,13 +57,13 @@ function LoginForm() {
       }
     };
     
-    // Set a very short fallback timeout
+    // Set a fallback timeout
     const fallbackTimeout = setTimeout(() => {
       if (isMounted) {
         console.log('⏰ Auth check timeout, showing login form');
         setIsPageReady(true);
       }
-    }, 500);
+    }, 1000);
     
     checkAuth();
     
@@ -93,23 +93,71 @@ function LoginForm() {
     const maxLoadingTimeout = setTimeout(() => {
       console.log('⏰ Maximum loading time reached, resetting loading state');
       setLoading(false);
-      setMessage('Login is taking longer than expected. Please try again.');
-    }, 10000); // 10 seconds max
+      setMessage('Login is taking longer than expected. This might be due to network issues or server load. Please try again.');
+    }, 15000); // 15 seconds max
+
+    // Quick connection test
+    try {
+      console.log('🔍 Testing Supabase connection before login...');
+      const { error: connectionError } = await supabase.auth.getSession();
+      if (connectionError) {
+        console.error('❌ Supabase connection test failed:', connectionError);
+        clearTimeout(maxLoadingTimeout);
+        setLoading(false);
+        setMessage('Unable to connect to authentication service. Please check your internet connection and try again.');
+        return;
+      }
+      console.log('✅ Supabase connection test passed');
+    } catch (connectionTestError) {
+      console.error('❌ Connection test exception:', connectionTestError);
+      clearTimeout(maxLoadingTimeout);
+      setLoading(false);
+      setMessage('Connection test failed. Please check your internet connection and try again.');
+      return;
+    }
 
     try {
       console.log('🔐 Attempting login with:', { email: formData.email });
+      console.log('🔍 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://duzyicfcmuhbwypdtelz.supabase.co');
+      console.log('🔍 Supabase Key (first 20 chars):', (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1enlpY2ZjbXVoYnd5cGR0ZWx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU5NDcyMzgsImV4cCI6MjA3MTUyMzIzOH0.DEupJkwdD-q2OqE5nu33ZK0dAHLKIV3wZazibTc6xf8').substring(0, 20) + '...');
       
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const startTime = Date.now();
+      
+      // Test Supabase connection first
+      console.log('🔍 Testing Supabase connection...');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      console.log('🔍 Session check result:', { sessionData, sessionError });
+      
+      // Add a timeout wrapper for the Supabase call
+      const loginPromise = supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
-
-      console.log('🔐 Login response:', { data, error });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Supabase login timeout')), 8000)
+      );
+      
+      const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as any;
+      const endTime = Date.now();
+      
+      console.log(`🔐 Login response received in ${endTime - startTime}ms:`, { data, error });
 
       if (error) {
         console.error('❌ Login error:', error);
         clearTimeout(maxLoadingTimeout);
-        setMessage(`Login failed: ${error.message}`);
+        
+        // Handle specific error types
+        if (error.message === 'Supabase login timeout') {
+          setMessage('Login request timed out. Please check your internet connection and try again.');
+        } else if (error.message.includes('Invalid login credentials')) {
+          setMessage('Invalid email or password. Please check your credentials and try again.');
+        } else if (error.message.includes('Email not confirmed')) {
+          setMessage('Please check your email and click the confirmation link before logging in.');
+        } else {
+          setMessage(`Login failed: ${error.message}`);
+        }
+        
         setLoading(false);
         return;
       }
@@ -254,9 +302,12 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-black text-white font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            className="w-full py-3 bg-black text-white font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center space-x-2"
           >
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            <span>{loading ? 'Signing in...' : 'Sign in'}</span>
           </button>
         </form>
 

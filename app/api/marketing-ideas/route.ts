@@ -89,64 +89,26 @@ const calculateSimilarity = (text1: string, text2: string): number => {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 POST /api/marketing-ideas - Processing marketing ideas...');
-    
     const body = await request.json();
-    const { limit = 10 } = body;
-
-    // Hardcoded marketing subreddits as per user requirements
-    const marketingSubreddits = [
-      'marketing',
-      'digital_marketing', 
-      'GrowthHacking',
-      'marketinghacks',
-      'ContentMarketing',
-      'socialmedia',
-      'advertising',
-      'Entrepreneur',
-      'startups'
-    ];
-
-    console.log(`📱 Fetching posts from ${marketingSubreddits.length} marketing subreddits...`);
+    console.log('🔍 Marketing Ideas API called with:', body);
     
-    // Fetch posts from all marketing subreddits
-    let allRedditPosts: any[] = [];
-    for (const subreddit of marketingSubreddits) {
-      const posts = await redditAPI.getPosts(subreddit, Math.ceil(limit / marketingSubreddits.length));
-      if (posts && posts.length > 0) {
-        allRedditPosts.push(...posts);
-      }
+    // Check if this is a bulk fetch and analyze action
+    if (body.action === 'fetch_and_analyze') {
+      console.log('🚀 Calling handleBulkMarketingFetchAndAnalyze...');
+      return await handleBulkMarketingFetchAndAnalyze();
     }
     
-    const redditPosts = allRedditPosts.slice(0, limit);
-    
-    if (!redditPosts || redditPosts.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: `No posts found in marketing subreddits`
-      }, { status: 404 });
+    // Original logic for single Reddit post analysis
+    const { reddit_post } = body;
+
+    if (!reddit_post) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Reddit post data is required' 
+      }, { status: 400 });
     }
 
-    console.log(`📊 Found ${redditPosts.length} posts from marketing subreddits`);
-
-    // Filter posts that contain marketing ideas
-    // For now, use all Reddit posts for marketing ideas
-    // TODO: Implement proper marketing idea filtering
-    const marketingPosts = redditPosts;
-
-    console.log(`🎯 Filtered to ${marketingPosts.length} marketing idea posts`);
-
-    if (marketingPosts.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: `No marketing ideas found in marketing subreddits`
-      }, { status: 404 });
-    }
-
-    // Process the first marketing post (you can extend this to process multiple)
-    const reddit_post = marketingPosts[0];
-    
-    console.log(`🔍 Analyzing marketing post: "${reddit_post.title}"`);
+    console.log('🚀 Processing Reddit post for marketing idea analysis:', reddit_post.title.substring(0, 50));
 
     // Analyze the post with OpenAI using the marketing analysis method
     const analyzedPosts = await openaiService.analyzeMarketingPosts([reddit_post]);
@@ -209,7 +171,7 @@ export async function POST(request: NextRequest) {
         reddit_post_id: reddit_post.id,
         reddit_title: reddit_post.title,
         reddit_content: reddit_post.content || '',
-        reddit_author: reddit_post.author,
+        reddit_author: reddit_post.author || 'Unknown',
         reddit_subreddit: reddit_post.subreddit,
         reddit_score: reddit_post.score || 0,
         reddit_comments: reddit_post.num_comments || 0,
@@ -341,6 +303,373 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Helper function to detect duplicate marketing posts
+const detectDuplicateMarketingPost = async (post: any, supabase: any): Promise<{ isDuplicate: boolean; reason?: string; existingId?: string }> => {
+  try {
+    if (post.db_id) {
+      // Post is already in database, check by database ID
+      const { data: existingMarketingIdea, error: businessError } = await supabase
+        .from('marketing_ideas')
+        .select('id, marketing_idea_name')
+        .eq('reddit_post_id', post.db_id)
+        .limit(1);
+
+      if (businessError && businessError.code !== 'PGRST116') {
+        console.error('Error checking for existing marketing ideas:', businessError);
+        return { isDuplicate: false };
+      }
+
+      if (existingMarketingIdea && existingMarketingIdea.length > 0) {
+        return { 
+          isDuplicate: true, 
+          reason: `Reddit post already has marketing ideas (DB ID: ${post.db_id})`, 
+          existingId: existingMarketingIdea[0].id 
+        };
+      }
+    } else {
+      // Fresh post, check if Reddit post ID exists in reddit_posts table
+      const { data: existingRedditPost, error: redditError } = await supabase
+        .from('reddit_posts')
+        .select('id')
+        .eq('reddit_post_id', post.id)
+        .limit(1);
+
+      if (redditError && redditError.code !== 'PGRST116') {
+        console.error('Error checking for existing Reddit post:', redditError);
+        return { isDuplicate: false };
+      }
+
+      if (existingRedditPost && existingRedditPost.length > 0) {
+        // Reddit post exists in database, check if it has marketing ideas
+        const { data: existingMarketingIdea, error: businessError } = await supabase
+          .from('marketing_ideas')
+          .select('id, marketing_idea_name')
+          .eq('reddit_post_id', existingRedditPost[0].id)
+          .limit(1);
+
+        if (businessError && businessError.code !== 'PGRST116') {
+          console.error('Error checking for existing marketing ideas:', businessError);
+          return { isDuplicate: false };
+        }
+
+        if (existingMarketingIdea && existingMarketingIdea.length > 0) {
+          return { 
+            isDuplicate: true, 
+            reason: `Reddit post already has marketing ideas (Reddit ID: ${post.id})`, 
+            existingId: existingMarketingIdea[0].id 
+          };
+        }
+      }
+    }
+
+    return { isDuplicate: false };
+  } catch (error) {
+    console.error('Error in detectDuplicateMarketingPost:', error);
+    return { isDuplicate: false };
+  }
+};
+
+// Process marketing posts in batches
+const processMarketingPostsInBatches = async (posts: any[], batchSize: number = 10) => {
+  console.log(`🚀 Starting batch processing of ${posts.length} marketing posts in batches of ${batchSize}...`);
+  
+  // Create batches
+  const batches = [];
+  for (let i = 0; i < posts.length; i += batchSize) {
+    batches.push(posts.slice(i, i + batchSize));
+  }
+  
+  console.log(`📦 Created ${batches.length} batches for processing`);
+  
+  // Remove duplicates within the posts array
+  const uniquePosts = new Map();
+  posts.forEach(post => {
+    if (!uniquePosts.has(post.id)) {
+      uniquePosts.set(post.id, post);
+    }
+  });
+  const deduplicatedPosts = Array.from(uniquePosts.values());
+  console.log(`✅ Deduplicated: ${deduplicatedPosts.length}/${posts.length} unique posts`);
+
+  console.log(`📋 Sample posts to be processed:`);
+  deduplicatedPosts.slice(0, 3).forEach((post, index) => {
+    console.log(`  ${index + 1}. ${post.title.substring(0, 80)}...`);
+  });
+
+  const allProcessedPosts: any[] = [];
+  
+  // Process batches sequentially to avoid rate limits
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+    const progress = Math.round(((batchIndex + 1) / batches.length) * 100);
+    console.log(`🔄 Processing batch ${batchIndex + 1}/${batches.length} (${progress}%) with ${batch.length} posts`);
+    
+    try {
+      // Check for duplicates across subreddits
+      const filteredBatch = [];
+      let batchDuplicateCount = 0;
+      for (const post of batch) {
+        const duplicateCheck = await detectDuplicateMarketingPost(post, supabaseAdmin);
+        if (duplicateCheck.isDuplicate) {
+          console.log(`🚫 Skipping duplicate post ${post.id}: ${duplicateCheck.reason}`);
+          batchDuplicateCount++;
+          continue;
+        }
+        filteredBatch.push(post);
+      }
+
+      console.log(`✅ ${filteredBatch.length}/${batch.length} posts passed duplicate check (${batchDuplicateCount} duplicates in this batch)`);
+      
+      if (filteredBatch.length === 0) {
+        console.log(`Batch ${batchIndex + 1}: All posts were duplicates`);
+        continue;
+      }
+      
+      // Batch analyze posts with OpenAI
+      console.log(`🧠 Batch analyzing ${filteredBatch.length} posts with OpenAI...`);
+      const analyzedPosts = await openaiService.analyzeMarketingPosts(filteredBatch);
+      
+      console.log(`🎯 Generated ${analyzedPosts.length} marketing ideas from ${filteredBatch.length} posts`);
+      
+      if (analyzedPosts.length === 0) {
+        console.log(`❌ OpenAI returned 0 marketing ideas. This might be an API issue.`);
+        continue;
+      }
+      
+      console.log(`📊 Sample marketing ideas generated:`, analyzedPosts.slice(0, 2).map(idea => ({
+        name: idea.marketing_idea_name,
+        impact: idea.potential_impact,
+        channels: idea.channel?.length || 0
+      })));
+
+      allProcessedPosts.push(...analyzedPosts);
+      
+      // Add delay between batches to avoid rate limiting
+      if (batchIndex < batches.length - 1) {
+        console.log(`⏳ Waiting 2 seconds before next batch...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error processing batch ${batchIndex + 1}:`, error);
+      continue;
+    }
+  }
+  
+  console.log(`✅ Batch processing completed: ${allProcessedPosts.length} marketing ideas generated from ${deduplicatedPosts.length} unique posts`);
+  return allProcessedPosts;
+};
+
+// New function to handle bulk fetch and analyze for marketing ideas
+async function handleBulkMarketingFetchAndAnalyze() {
+  try {
+    console.log('🚀 Starting bulk marketing fetch and analyze process...');
+    
+    // Fetch posts from ALL Reddit subreddits (using the full SUBREDDITS array)
+    const posts = await redditAPI.fetchAllSubreddits();
+    console.log(`✅ Fetched ${posts.length} posts from Reddit using all ${redditAPI.SUBREDDITS.length} subreddits`);
+    
+    if (posts.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'No posts fetched from Reddit. Please try again.'
+      }, { status: 400 });
+    }
+
+    // Filter for marketing-related posts
+    console.log(`🔍 Filtering ${posts.length} Reddit posts for marketing content...`);
+    const marketingPosts = posts.filter(post => {
+      const combinedText = `${post.title} ${post.content}`.toLowerCase();
+      const marketingKeywords = [
+        'marketing', 'advertising', 'promotion', 'campaign', 'brand', 'social media',
+        'content marketing', 'email marketing', 'seo', 'ppc', 'growth hacking',
+        'digital marketing', 'influencer', 'viral', 'engagement', 'conversion',
+        'lead generation', 'customer acquisition', 'retention', 'analytics'
+      ];
+      
+      return marketingKeywords.some(keyword => combinedText.includes(keyword));
+    });
+    
+    console.log(`✅ Marketing filter: ${marketingPosts.length}/${posts.length} posts passed`);
+    
+    if (marketingPosts.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'No marketing-related posts found after filtering'
+      }, { status: 400 });
+    }
+
+    // Deduplicate marketing posts
+    console.log(`🔍 Deduplicating ${marketingPosts.length} marketing posts...`);
+    const uniquePosts = new Map();
+    marketingPosts.forEach(post => {
+      if (!uniquePosts.has(post.id)) {
+        uniquePosts.set(post.id, post);
+      }
+    });
+    const deduplicatedPosts = Array.from(uniquePosts.values());
+    console.log(`✅ Deduplicated: ${deduplicatedPosts.length}/${marketingPosts.length} unique marketing posts`);
+
+    // Analyze posts for marketing ideas
+    console.log('🧠 Starting marketing idea analysis on filtered posts...');
+    console.log(`📊 Posts to analyze: ${deduplicatedPosts.length}`);
+    
+    const processedPosts = await processMarketingPostsInBatches(deduplicatedPosts, 10);
+    
+    console.log(`✅ Analysis completed: ${processedPosts.length} marketing ideas generated from ${deduplicatedPosts.length} posts`);
+    
+    if (processedPosts.length === 0) {
+      console.log('⚠️ No marketing ideas generated, not saving any Reddit posts');
+      return NextResponse.json({
+        success: true,
+        message: 'No marketing ideas generated from the filtered posts',
+        posts_fetched: deduplicatedPosts.length,
+        marketing_ideas_generated: 0,
+        posts: [],
+        marketing_ideas: []
+      });
+    }
+    
+    // Get unique Reddit posts that generated marketing ideas
+    const postsWithIdeas = new Map();
+    processedPosts.forEach(idea => {
+      if (!postsWithIdeas.has(idea.id)) {
+        postsWithIdeas.set(idea.id, {
+          id: idea.id,
+          title: idea.title,
+          content: idea.content,
+          author: idea.author,
+          subreddit: idea.subreddit,
+          score: idea.score,
+          num_comments: idea.num_comments,
+          url: idea.url,
+          permalink: idea.permalink,
+          created_utc: idea.created_utc
+        });
+      }
+    });
+    
+    const postsToSave = Array.from(postsWithIdeas.values());
+    
+    // Save Reddit posts to database
+    console.log(`💾 Saving ${postsToSave.length} Reddit posts to database...`);
+    const savedPosts = [];
+    for (const post of postsToSave) {
+      try {
+        const redditPostData = {
+          reddit_post_id: post.id,
+          reddit_title: post.title,
+          reddit_content: post.content || '',
+          reddit_author: post.author || 'Unknown',
+          reddit_subreddit: post.subreddit,
+          reddit_score: post.score || 0,
+          reddit_comments: post.num_comments || 0,
+          reddit_url: post.url,
+          reddit_permalink: post.permalink,
+          reddit_created_utc: post.created_utc
+        };
+
+        const { data: redditData, error: redditError } = await supabaseAdmin
+          .from('reddit_posts')
+          .insert(redditPostData)
+          .select()
+          .single();
+
+        if (redditError) {
+          console.error(`❌ Error saving Reddit post: ${post.title}`, redditError);
+          continue;
+        }
+
+        savedPosts.push(redditData);
+        console.log(`✅ Successfully saved Reddit post: ${post.title}`);
+      } catch (error) {
+        console.error(`❌ Error processing Reddit post: ${post.title}`, error);
+        continue;
+      }
+    }
+    
+    console.log(`✅ Successfully saved ${savedPosts.length} Reddit posts to database`);
+    
+    // Save marketing ideas to database
+    console.log(`💾 Saving ${processedPosts.length} marketing ideas to database...`);
+    const savedMarketingIdeas = [];
+    
+    for (const idea of processedPosts) {
+      try {
+        // Find the corresponding Reddit post database ID
+        const redditPost = savedPosts.find(p => p.reddit_post_id === idea.id);
+        if (!redditPost) {
+          console.error(`❌ Could not find Reddit post for marketing idea: ${idea.marketing_idea_name}`);
+          continue;
+        }
+
+        // Normalize potential_impact
+        const normalizePotentialImpact = (impact: string): 'High' | 'Medium' | 'Low' => {
+          const normalized = impact?.toLowerCase().trim();
+          if (normalized?.includes('high') || normalized?.includes('strong') || normalized?.includes('significant')) {
+            return 'High';
+          } else if (normalized?.includes('low') || normalized?.includes('weak') || normalized?.includes('minimal')) {
+            return 'Low';
+          } else {
+            return 'Medium';
+          }
+        };
+
+        const marketingIdeaData = {
+          reddit_post_id: redditPost.id,
+          reddit_title: idea.title,
+          marketing_idea_name: idea.marketing_idea_name,
+          idea_description: idea.idea_description,
+          channel: idea.channel,
+          target_audience: idea.target_audience,
+          potential_impact: normalizePotentialImpact(idea.potential_impact),
+          implementation_tips: idea.implementation_tips,
+          success_metrics: idea.success_metrics,
+          analysis_status: 'completed',
+          full_analysis: idea.full_analysis
+        };
+        
+        const { data: marketingData, error: marketingError } = await supabaseAdmin
+          .from('marketing_ideas')
+          .insert(marketingIdeaData)
+          .select()
+          .single();
+        
+        if (marketingError) {
+          console.error(`❌ Error saving marketing idea: ${idea.marketing_idea_name}`, marketingError);
+          continue;
+        }
+        
+        savedMarketingIdeas.push(marketingData);
+        console.log(`✅ Successfully saved marketing idea: ${idea.marketing_idea_name}`);
+      } catch (error) {
+        console.error(`❌ Error processing marketing idea: ${idea.marketing_idea_name}`, error);
+        continue;
+      }
+    }
+    
+    console.log(`✅ Successfully saved ${savedMarketingIdeas.length} marketing ideas to database`);
+    
+    return NextResponse.json({
+      success: true,
+      message: `Successfully processed ${deduplicatedPosts.length} Reddit posts, generated ${processedPosts.length} marketing ideas, saved ${savedPosts?.length || 0} Reddit posts, and saved ${savedMarketingIdeas.length} marketing ideas`,
+      posts_fetched: deduplicatedPosts.length,
+      marketing_ideas_generated: processedPosts.length,
+      reddit_posts_saved: savedPosts?.length || 0,
+      marketing_ideas_saved: savedMarketingIdeas.length,
+      posts: savedPosts,
+      marketing_ideas: savedMarketingIdeas
+    });
+    
+  } catch (error) {
+    console.error('❌ Error in bulk marketing fetch and analyze:', error);
+    return NextResponse.json(
+      { success: false, message: 'Error in bulk marketing fetch and analyze process', error: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     console.log('📖 GET /api/marketing-ideas - Fetching marketing ideas...');
@@ -356,7 +685,7 @@ export async function GET(request: NextRequest) {
     // First, get the total count
     const { count: totalCount, error: countError } = await supabase
       .from('marketing_ideas')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('analysis_status', 'completed');
     
     if (countError) {
@@ -367,10 +696,24 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Then fetch the paginated data
+    // Then fetch the paginated data - specify columns explicitly to avoid schema issues
     const { data, error } = await supabase
       .from('marketing_ideas')
-      .select('*')
+      .select(`
+        id,
+        reddit_post_id,
+        marketing_idea_name,
+        idea_description,
+        channel,
+        target_audience,
+        potential_impact,
+        implementation_tips,
+        success_metrics,
+        analysis_status,
+        full_analysis,
+        created_at,
+        updated_at
+      `)
       .eq('analysis_status', 'completed')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
