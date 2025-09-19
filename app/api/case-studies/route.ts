@@ -5,10 +5,10 @@ export async function GET(request: NextRequest) {
   try {
     console.log('📚 Fetching case studies...');
 
-    // Get all case studies
-    const { data: caseStudies, error: caseStudiesError } = await supabaseAdmin
+    // Get all case studies with count
+    const { data: caseStudies, error: caseStudiesError, count } = await supabaseAdmin
       .from('case_studies')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (caseStudiesError) {
@@ -20,11 +20,12 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log(`✅ Retrieved ${caseStudies?.length || 0} case studies`);
+    console.log(`✅ Retrieved ${caseStudies?.length || 0} case studies (total: ${count || 0})`);
 
     return NextResponse.json({
       success: true,
-      case_studies: caseStudies || []
+      case_studies: caseStudies || [],
+      count: count || 0
     });
 
   } catch (error) {

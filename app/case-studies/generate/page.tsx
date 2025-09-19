@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { DashboardLayout } from '@/app/components/DashboardLayout';
 import { BookOpen, Calendar, DollarSign, Users, TrendingUp, ExternalLink, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 
 interface CaseStudy {
   id: string;
@@ -146,10 +147,11 @@ export default function CaseStudiesPage() {
                   {/* Cover Image */}
                   {study.cover_image_url ? (
                     <div className="h-48 bg-gray-200 relative overflow-hidden">
-                      <img
+                      <Image
                         src={study.cover_image_url}
                         alt={study.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-200"
                       />
                     </div>
                   ) : (

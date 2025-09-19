@@ -636,6 +636,8 @@ export default function Dashboard() {
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState<Set<number>>(new Set());
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false); // Add this flag
   const [showMobileMenu, setShowMobileMenu] = useState(false); // Mobile menu state
+  const [dashboardDataLoading, setDashboardDataLoading] = useState(false); // Dashboard stats loading state
+  const [dashboardDataLoaded, setDashboardDataLoaded] = useState(false); // Track if dashboard data has been loaded
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -662,6 +664,12 @@ export default function Dashboard() {
   const caseStudyItemsPerPage = 30;
   const [caseStudyCache, setCaseStudyCache] = useState<Map<number, any[]>>(new Map());
   const [caseStudyDataLoaded, setCaseStudyDataLoaded] = useState(false);
+  
+  // Case studies filter state
+  const [caseStudyFilter, setCaseStudyFilter] = useState<'valuation' | 'revenue' | 'name'>('valuation');
+  const [caseStudySortOrder, setCaseStudySortOrder] = useState<'asc' | 'desc'>('desc');
+  const [caseStudySearchTerm, setCaseStudySearchTerm] = useState('');
+  const [globalSearchTerm, setGlobalSearchTerm] = useState(''); // Global search for all menus
   const [marketingBookmarked, setMarketingBookmarked] = useState<Set<number>>(new Set());
   const [generatingMarketingIdea, setGeneratingMarketingIdea] = useState(false);
   
@@ -751,12 +759,20 @@ export default function Dashboard() {
     }
   }, [authLoading, user, router]);
 
+  // Refresh dashboard data (force reload)
+  const refreshDashboardData = async () => {
+    console.log('🔄 Refreshing dashboard data...');
+    setDashboardDataLoaded(false); // Reset the loaded flag to force reload
+    await fetchDashboardData();
+  };
+
   // Fetch dashboard data
   const fetchDashboardData = async () => {
+    setDashboardDataLoading(true);
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
       // Fetch business ideas and marketing ideas in parallel
       const [businessResponse, marketingResponse] = await Promise.all([
         fetch('/api/business-ideas'),
@@ -769,14 +785,17 @@ export default function Dashboard() {
       ]);
 
       // Fetch case studies separately
-      let caseStudiesData = { success: false, case_studies: [] };
+      let caseStudiesData: { success: boolean; case_studies: any[]; count?: number } = { success: false, case_studies: [] };
       try {
         const caseStudiesResponse = await fetch('/api/case-studies');
         if (caseStudiesResponse.ok) {
           caseStudiesData = await caseStudiesResponse.json();
+          console.log('📊 Case studies API response:', caseStudiesData);
+        } else {
+          console.log('❌ Case studies API response not ok:', caseStudiesResponse.status);
         }
       } catch (error) {
-        console.log('⚠️ Case studies API not available, using empty data');
+        console.log('⚠️ Case studies API not available, using empty data:', error);
       }
 
       // Fetch saved items (requires user_id)
@@ -825,12 +844,16 @@ export default function Dashboard() {
       let todayCaseStudies = 0;
       if (caseStudiesData.success) {
         const studies = caseStudiesData.case_studies || [];
-        totalCaseStudies = studies.length;
+        // Use the total count from API instead of array length
+        totalCaseStudies = caseStudiesData.count || studies.length;
         todayCaseStudies = studies.filter((study: any) => {
           const studyDate = new Date(study.created_at);
           studyDate.setHours(0, 0, 0, 0);
           return studyDate.getTime() === today.getTime();
         }).length;
+        console.log('📊 Case studies stats calculated:', { totalCaseStudies, todayCaseStudies, studiesLength: studies.length, count: caseStudiesData.count });
+      } else {
+        console.log('❌ Case studies data not successful:', caseStudiesData);
       }
 
       // Calculate saved ideas stats
@@ -879,15 +902,19 @@ export default function Dashboard() {
       });
     } catch (err) {
       console.error('❌ Error fetching dashboard data:', err);
+    } finally {
+      setDashboardDataLoading(false);
+      setDashboardDataLoaded(true); // Mark as loaded even if there was an error
     }
   };
 
-  // Fetch dashboard data when component mounts or when dashboard tab is active
+  // Fetch dashboard data when component mounts or when dashboard tab is active (only if not already loaded)
   useEffect(() => {
-    if (activeTab === 'dashboard') {
+    if (activeTab === 'dashboard' && !dashboardDataLoaded) {
+      console.log('🔄 Fetching dashboard data for first time...');
       fetchDashboardData();
     }
-  }, [activeTab]);
+  }, [activeTab, dashboardDataLoaded]);
 
   // Fetch saved bookmarks when user changes
   useEffect(() => {
@@ -933,18 +960,15 @@ export default function Dashboard() {
       return;
     }
 
-    console.log('🚀 Starting fetchCaseStudies...');
     setCaseStudyLoading(true);
     setCaseStudyError(null);
     
     try {
-      console.log('📡 Fetching from Supabase...');
+      // Always fetch all data for client-side filtering
       const { data, error, count } = await supabase
         .from('case_studies')
         .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .limit(caseStudyItemsPerPage)
-        .range((caseStudyCurrentPage - 1) * caseStudyItemsPerPage, caseStudyCurrentPage * caseStudyItemsPerPage - 1);
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Supabase error:', error);
@@ -989,11 +1013,16 @@ export default function Dashboard() {
 
   // Fetch case studies when page changes (only if tab is active)
   useEffect(() => {
-    if (activeTab === 'case-studies' && caseStudyCurrentPage > 1) {
+    if (activeTab === 'case-studies' && caseStudyDataLoaded) {
       console.log('🔄 Fetching case studies for page:', caseStudyCurrentPage);
       fetchCaseStudies();
     }
-  }, [caseStudyCurrentPage, activeTab, fetchCaseStudies]);
+  }, [caseStudyCurrentPage, activeTab, fetchCaseStudies, caseStudyDataLoaded]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCaseStudyCurrentPage(1);
+  }, [caseStudySearchTerm, globalSearchTerm, caseStudyFilter, caseStudySortOrder]);
 
   // Convert case studies to DataTable format
   const caseStudyTableData = useMemo(() => {
@@ -1023,23 +1052,169 @@ export default function Dashboard() {
       console.warn('⚠️ Duplicate case study IDs detected:', ids);
     }
 
-    return mappedData;
-  }, [caseStudies, caseStudyBookmarked]);
+    // Apply search filter (use global search when case studies tab is active)
+    let filteredData = mappedData;
+    const searchTerm = activeTab === 'case-studies' ? globalSearchTerm : caseStudySearchTerm;
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filteredData = mappedData.filter(study => 
+        study.title.toLowerCase().includes(searchLower) ||
+        study.app_name.toLowerCase().includes(searchLower) ||
+        study.founder_name.toLowerCase().includes(searchLower) ||
+        study.category.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply sorting
+    const sortedData = [...filteredData].sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (caseStudyFilter) {
+        case 'valuation':
+          aValue = a.valuation || 0;
+          bValue = b.valuation || 0;
+          break;
+        case 'revenue':
+          aValue = a.current_revenue || 0;
+          bValue = b.current_revenue || 0;
+          break;
+        case 'name':
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
+          break;
+        default:
+          aValue = a.valuation || 0;
+          bValue = b.valuation || 0;
+      }
+
+      if (caseStudyFilter === 'name') {
+        // String comparison for name
+        if (caseStudySortOrder === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      } else {
+        // Numeric comparison for valuation and revenue
+        if (caseStudySortOrder === 'asc') {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      }
+    });
+
+    // Apply client-side pagination
+    const startIndex = (caseStudyCurrentPage - 1) * caseStudyItemsPerPage;
+    const endIndex = startIndex + caseStudyItemsPerPage;
+    const paginatedData = sortedData.slice(startIndex, endIndex);
+
+    return paginatedData;
+  }, [caseStudies, caseStudyBookmarked, caseStudyFilter, caseStudySortOrder, caseStudySearchTerm, globalSearchTerm, activeTab, caseStudyCurrentPage, caseStudyItemsPerPage]);
+
+  // Get total filtered data count for pagination
+  const caseStudyFilteredData = useMemo(() => {
+    const mappedData = caseStudies.map(study => ({
+      id: study.id,
+      title: study.title || 'Untitled Case Study',
+      subtitle: study.subtitle || '',
+      niche: study.category || 'Not Specified',
+      category: study.category || 'Not Specified',
+      market_size: [study.market_context || 'Not specified'],
+      dateGenerated: study.created_at,
+      slug: study.slug || '',
+      current_revenue: study.current_revenue || 0,
+      valuation: study.valuation || 0,
+      users_count: study.users_count || 0,
+      is_published: study.is_published || false,
+      needs_review: study.needs_review || true,
+      founder_name: study.founder_name || 'Not disclosed',
+      app_name: study.app_name || study.title || 'Not disclosed',
+      isBookmarked: caseStudyBookmarked.has(study.id)
+    }));
+
+    // Apply search filter (use global search when case studies tab is active)
+    let filteredData = mappedData;
+    const searchTerm = activeTab === 'case-studies' ? globalSearchTerm : caseStudySearchTerm;
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filteredData = mappedData.filter(study => 
+        study.title.toLowerCase().includes(searchLower) ||
+        study.app_name.toLowerCase().includes(searchLower) ||
+        study.founder_name.toLowerCase().includes(searchLower) ||
+        study.category.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply sorting
+    const sortedData = [...filteredData].sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (caseStudyFilter) {
+        case 'valuation':
+          aValue = a.valuation || 0;
+          bValue = b.valuation || 0;
+          break;
+        case 'revenue':
+          aValue = a.current_revenue || 0;
+          bValue = b.current_revenue || 0;
+          break;
+        case 'name':
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
+          break;
+        default:
+          aValue = a.valuation || 0;
+          bValue = b.valuation || 0;
+      }
+
+      if (caseStudyFilter === 'name') {
+        // String comparison for name
+        if (caseStudySortOrder === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      } else {
+        // Numeric comparison for valuation and revenue
+        if (caseStudySortOrder === 'asc') {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      }
+    });
+
+    return sortedData;
+  }, [caseStudies, caseStudyBookmarked, caseStudyFilter, caseStudySortOrder, caseStudySearchTerm, globalSearchTerm, activeTab]);
 
   // Convert business ideas to DataTable format
   const tableData = useMemo(() => {
-    return businessIdeas.map(idea => ({
-    id: idea.id,
-    title: idea.business_idea_name || idea.reddit_posts?.reddit_title || 'Untitled Business Idea',
-    niche: idea.niche || 'Not Specified',
-    category: idea.category || 'General',
-    market_size: idea.market_size || ['Unknown'],
-    dateGenerated: idea.created_at,
-    isBookmarked: bookmarkedIdeas.has(idea.id),
-    reddit_score: idea.reddit_posts?.reddit_score || 0,
-    reddit_comments: idea.reddit_posts?.reddit_comments || 0
-  }));
-  }, [businessIdeas, bookmarkedIdeas]);
+    const mappedData = businessIdeas.map(idea => ({
+      id: idea.id,
+      title: idea.business_idea_name || idea.reddit_posts?.reddit_title || 'Untitled Business Idea',
+      niche: idea.niche || 'Not Specified',
+      category: idea.category || 'General',
+      market_size: idea.market_size || ['Unknown'],
+      dateGenerated: idea.created_at,
+      isBookmarked: bookmarkedIdeas.has(idea.id),
+      reddit_score: idea.reddit_posts?.reddit_score || 0,
+      reddit_comments: idea.reddit_posts?.reddit_comments || 0
+    }));
+
+    // Apply search filter (use global search when business ideas tab is active)
+    if (activeTab === 'business-ideas' && globalSearchTerm) {
+      const searchLower = globalSearchTerm.toLowerCase();
+      return mappedData.filter(idea => 
+        idea.title.toLowerCase().includes(searchLower) ||
+        idea.niche.toLowerCase().includes(searchLower) ||
+        idea.category.toLowerCase().includes(searchLower) ||
+        idea.market_size.some(size => size.toLowerCase().includes(searchLower))
+      );
+    }
+
+    return mappedData;
+  }, [businessIdeas, bookmarkedIdeas, globalSearchTerm, activeTab]);
 
   // Convert marketing ideas to DataTable format
   const marketingTableData = useMemo(() => {
@@ -1047,7 +1222,7 @@ export default function Dashboard() {
     console.log('🔖 Marketing ideas count:', marketingIdeas.length);
     console.log('🔖 Marketing bookmarked set:', Array.from(marketingBookmarked));
     
-    return marketingIdeas.map(idea => {
+    const mappedData = marketingIdeas.map(idea => {
       const isBookmarked = marketingBookmarked.has(idea.id);
       console.log(`🔖 Idea ${idea.id} (${idea.marketing_idea_name}): isBookmarked = ${isBookmarked}`);
       
@@ -1064,7 +1239,21 @@ export default function Dashboard() {
         success_metrics: idea.success_metrics || []
       };
     });
-  }, [marketingIdeas, marketingBookmarked]);
+
+    // Apply search filter (use global search when marketing ideas tab is active)
+    if (activeTab === 'marketing-ideas' && globalSearchTerm) {
+      const searchLower = globalSearchTerm.toLowerCase();
+      return mappedData.filter(idea => 
+        idea.title.toLowerCase().includes(searchLower) ||
+        idea.niche.toLowerCase().includes(searchLower) ||
+        idea.category.toLowerCase().includes(searchLower) ||
+        idea.potential_impact.toLowerCase().includes(searchLower) ||
+        idea.market_size.some((audience: string) => audience.toLowerCase().includes(searchLower))
+      );
+    }
+
+    return mappedData;
+  }, [marketingIdeas, marketingBookmarked, globalSearchTerm, activeTab]);
 
 
   // Show loading state while authentication is being checked
@@ -1485,9 +1674,9 @@ export default function Dashboard() {
         }
         
         try {
-        await fetchDashboardData();
+        await refreshDashboardData();
         } catch (dashboardError) {
-          console.error('❌ Error fetching dashboard data:', dashboardError);
+          console.error('❌ Error refreshing dashboard data:', dashboardError);
         }
         
         console.log('✅ generateNewIdea completed successfully');
@@ -1548,9 +1737,9 @@ export default function Dashboard() {
         }
         
         try {
-        await fetchDashboardData();
+        await refreshDashboardData();
         } catch (dashboardError) {
-          console.error('❌ Error fetching dashboard data:', dashboardError);
+          console.error('❌ Error refreshing dashboard data:', dashboardError);
         }
         
         showNotification(`Successfully analyzed and saved ${data.marketing_ideas_saved || 0} new marketing ideas!`, 'success');
@@ -1619,6 +1808,7 @@ export default function Dashboard() {
         return (
           <div className="space-y-8">
             {/* Greeting */}
+            <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Hello, {(profile?.display_name || profile?.name || user?.email?.split('@')[0] || 'User')
@@ -1627,52 +1817,119 @@ export default function Dashboard() {
                 .join(' ')}!
             </h1>
               <p className="text-gray-600">Welcome to your GOLDMINES dashboard. Here's what's new.</p>
+              </div>
+              <button
+                onClick={refreshDashboardData}
+                disabled={dashboardDataLoading}
+                className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh dashboard data"
+              >
+                <svg className={`w-4 h-4 mr-2 ${dashboardDataLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {dashboardDataLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats.map((stat, index) => {
-                const IconComponent = stat.icon;
-                return (
+              {dashboardDataLoading ? (
+                // Loading state for stats cards
+                Array.from({ length: 4 }).map((_, index) => (
                   <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-medium text-gray-500">{stat.title}</h3>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+                      <div className="w-8 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-12"></div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                stats.map((stat, index) => {
+                const IconComponent = stat.icon;
+                return (
+                <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-gray-500">{stat.title}</h3>
                       <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                         <IconComponent className="w-4 h-4 text-gray-600" />
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-3xl font-bold text-gray-900">{stat.value}</span>
-                      <span className={`text-sm font-semibold flex items-center ${stat.color}`}>
-                        {stat.trend === 'up' ? <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
-                        {stat.change}
-                      </span>
-                    </div>
+                    <span className="text-3xl font-bold text-gray-900">{stat.value}</span>
+                    <span className={`text-sm font-semibold flex items-center ${stat.color}`}>
+                      {stat.trend === 'up' ? <ArrowUp className="w-4 h-4 mr-1" /> : <ArrowDown className="w-4 h-4 mr-1" />}
+                      {stat.change}
+                    </span>
                   </div>
+                </div>
                 );
-              })}
+                })
+              )}
             </div>
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Ideas Generated Over Time</h3>
+                {dashboardDataLoading ? (
+                  <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <span className="ml-2 text-gray-600">Loading chart data...</span>
+                  </div>
+                ) : (
                 <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
                   Line Chart Placeholder
                 </div>
+                )}
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Idea Types Distribution</h3>
+                {dashboardDataLoading ? (
+                  <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <span className="ml-2 text-gray-600">Loading chart data...</span>
+                  </div>
+                ) : (
                 <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
                   Pie Chart Placeholder
                 </div>
+                )}
               </div>
             </div>
 
             {/* Yesterday's Statistics */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Yesterday's Performance</h3>
-              {yesterdayStats.totalIdeas > 0 ? (
+              {dashboardDataLoading ? (
+                <div className="space-y-6">
+                  {/* Loading state for key metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-4">
+                        <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Loading state for charts */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+                        <div className="space-y-2">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : yesterdayStats.totalIdeas > 0 ? (
                 <div className="space-y-6">
                   {/* Key Metrics */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -2055,6 +2312,64 @@ export default function Dashboard() {
                     <p className="text-gray-600 mt-1">Learn from successful business stories</p>
                   </div>
                   <div className="flex items-center space-x-4">
+                    {/* Filter Controls */}
+                    {!showCaseStudyDetails && (
+                      <div className="flex items-center space-x-4">
+                        {/* Filter Dropdown */}
+                        <div>
+                          <label htmlFor="case-study-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                            Sort By
+                          </label>
+                          <select
+                            id="case-study-filter"
+                            value={caseStudyFilter}
+                            onChange={(e) => setCaseStudyFilter(e.target.value as 'valuation' | 'revenue' | 'name')}
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                          >
+                            <option value="valuation">Valuation</option>
+                            <option value="revenue">Revenue</option>
+                            <option value="name">Name (A-Z)</option>
+                          </select>
+                        </div>
+
+                        {/* Sort Order Toggle */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Order
+                          </label>
+                          <button
+                            onClick={() => setCaseStudySortOrder(caseStudySortOrder === 'asc' ? 'desc' : 'asc')}
+                            className="flex items-center px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                            title={`Sort ${caseStudySortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+                          >
+                            {caseStudySortOrder === 'asc' ? (
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+                              </svg>
+                            )}
+                            {caseStudySortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                          </button>
+                        </div>
+
+                        {/* Clear Filters */}
+                        {(caseStudyFilter !== 'valuation' || caseStudySortOrder !== 'desc') && (
+                          <button
+                            onClick={() => {
+                              setCaseStudyFilter('valuation');
+                              setCaseStudySortOrder('desc');
+                            }}
+                            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                          >
+                            Clear Filters
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     {showCaseStudyDetails && (
                       <button
                         onClick={() => {
@@ -2072,6 +2387,7 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
+
 
                 {/* Case Study Details View */}
                 {showCaseStudyDetails && selectedCaseStudy && (
@@ -2346,11 +2662,26 @@ export default function Dashboard() {
                     )}
 
                     {/* Pagination */}
-                    {caseStudyTotalPages > 1 && (
+                    {caseStudyTableData.length > 0 && (
                       <div className="flex items-center justify-between mt-6">
                         <div className="text-sm text-gray-600">
-                          Showing {((caseStudyCurrentPage - 1) * caseStudyItemsPerPage) + 1} to {Math.min(caseStudyCurrentPage * caseStudyItemsPerPage, caseStudyTotalCount)} of {caseStudyTotalCount} case studies
+                          {(() => {
+                            const totalFiltered = caseStudyFilteredData.length;
+                            const totalPages = Math.ceil(totalFiltered / caseStudyItemsPerPage);
+                            const startItem = ((caseStudyCurrentPage - 1) * caseStudyItemsPerPage) + 1;
+                            const endItem = Math.min(caseStudyCurrentPage * caseStudyItemsPerPage, totalFiltered);
+                            
+                            return `Showing ${startItem} to ${endItem} of ${totalFiltered} case studies`;
+                          })()}
                         </div>
+                        {/* Pagination controls */}
+                        {(() => {
+                          const totalFiltered = caseStudyFilteredData.length;
+                          const totalPages = Math.ceil(totalFiltered / caseStudyItemsPerPage);
+                          
+                          if (totalPages <= 1) return null;
+                          
+                          return (
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => setCaseStudyCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -2360,14 +2691,14 @@ export default function Dashboard() {
                             Previous
                           </button>
                           <div className="flex items-center space-x-1">
-                            {Array.from({ length: Math.min(5, caseStudyTotalPages) }, (_, i) => {
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                               let pageNum;
-                              if (caseStudyTotalPages <= 5) {
+                              if (totalPages <= 5) {
                                 pageNum = i + 1;
                               } else if (caseStudyCurrentPage <= 3) {
                                 pageNum = i + 1;
-                              } else if (caseStudyCurrentPage >= caseStudyTotalPages - 2) {
-                                pageNum = caseStudyTotalPages - 4 + i;
+                              } else if (caseStudyCurrentPage >= totalPages - 2) {
+                                pageNum = totalPages - 4 + i;
                               } else {
                                 pageNum = caseStudyCurrentPage - 2 + i;
                               }
@@ -2387,13 +2718,15 @@ export default function Dashboard() {
                             })}
                           </div>
                           <button
-                            onClick={() => setCaseStudyCurrentPage(prev => Math.min(prev + 1, caseStudyTotalPages))}
-                            disabled={caseStudyCurrentPage === caseStudyTotalPages}
+                            onClick={() => setCaseStudyCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={caseStudyCurrentPage === totalPages}
                             className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             Next
                           </button>
-                        </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
@@ -2541,7 +2874,14 @@ export default function Dashboard() {
                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                <input 
                  type="text" 
-                 placeholder="Search ideas, strategies, case studies..." 
+                 placeholder={
+                   activeTab === 'business-ideas' ? 'Search business ideas...' :
+                   activeTab === 'marketing-ideas' ? 'Search marketing ideas...' :
+                   activeTab === 'case-studies' ? 'Search case studies...' :
+                   'Search ideas, strategies, case studies...'
+                 }
+                 value={globalSearchTerm}
+                 onChange={(e) => setGlobalSearchTerm(e.target.value)}
                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                />
              </div>
